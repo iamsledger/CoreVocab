@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sổ Tay & Quiz Từ Vựng Tiếng Anh 10 Global Success</title>
+    <!-- Tải Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Cài đặt font Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Load Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Font và màu sắc cơ bản */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7; /* Light background */
+            color: #1f2937; /* Gray-800 */
+        }
+        /* Style cho nút Unit đang hoạt động */
+        .unit-button.active {
+            background-color: #10b981; /* Emerald-500 */
+            color: #FFFFFF;
+            box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.5), 0 2px 4px -1px rgba(16, 185, 129, 0.06);
+        }
+        .tab-button.active {
+            border-bottom: 3px solid #f97316; /* Orange-500 */
+            color: #f97316;
+            font-weight: 700;
+        }
+        /* Style cho thẻ từ vựng */
+        .vocab-card {
+            background-color: #ffffff;
+            border-left: 5px solid #3b82f6; /* Blue-500 */
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .vocab-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        /* Style cho quiz */
+        .quiz-card {
+            background-color: #ffffff;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .quiz-card:hover {
+            background-color: #e5e7eb; /* Gray-200 */
+        }
+        .quiz-card.correct {
+            background-color: #d1fae5; /* Green-100 */
+            border: 2px solid #10b981; /* Emerald-500 */
+            transform: scale(1.05);
+        }
+        .quiz-card.incorrect {
+            background-color: #fee2e2; /* Red-100 */
+            border: 2px solid #ef4444; /* Red-500 */
+            animation: shake 0.5s;
+        }
+        @keyframes shake {
+            0%, 100% {transform: translateX(0);}
+            20%, 60% {transform: translateX(-5px);}
+            40%, 80% {transform: translateX(5px);}
+        }
+        .timer-bar {
+            height: 8px;
+            background-color: #3b82f6;
+            transition: width 0.1s linear;
+        }
+
+        /* --- STYLES CHO MINIGAME WORD PUZZLE TETRIS --- */
+        #gameArea {
+            width: 400px;
+            height: 500px; /* Tăng chiều cao */
+            border: 3px solid #333;
+            background: #e6f7ff;
+            position: relative;
+            overflow: hidden;
+            margin: 20px auto 10px;
+        }
+        .letter {
+            width: 50px; height: 50px;
+            border: 2px solid #333;
+            border-radius: 5px;
+            text-align: center;
+            line-height: 50px;
+            font-size: 24px;
+            font-weight: bold;
+            position: absolute;
+            cursor: grab;
+            color: #fff;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+        #dropZoneGame {
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
+            min-height: 60px;
+        }
+        .dropSlotGame {
+            width: 50px;
+            height: 50px;
+            margin: 0 5px;
+            border: 2px dashed #3b82f6;
+            border-radius: 5px;
+            text-align: center;
+            line-height: 50px;
+            font-size: 24px;
+            font-weight: bold;
+            background: #ffffff;
+            color: #1f2937;
+        }
+        /* --- END MINIGAME STYLES --- */
+
+        /* Style cho Matching Game */
+        .match-card {
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: all 0.1s ease;
+            font-weight: 600;
+        }
+        .match-card.word { background-color: #bfdbfe; /* Blue-200 */ }
+        .match-card.meaning { background-color: #d1fae5; /* Green-100 */ }
+        .match-card.selected {
+            border: 3px solid #f59e0b; /* Amber-500 */
+            box-shadow: 0 0 10px #f59e0b;
+            transform: scale(1.02);
+        }
+        .match-card.matched {
+            background-color: #10b981; /* Emerald-500 */
+            color: white;
+            cursor: default;
+            pointer-events: none;
+            opacity: 0.8;
+            transform: scale(1);
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-2xl p-6 md:p-10">
+
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-extrabold text-orange-600">Sổ Tay & Quiz Từ Vựng</h1>
+            <p class="text-xl text-gray-600 mt-2">Tiếng Anh 10 - Global Success</p>
+        </header>
+
+        <!-- Unit Selection -->
+        <div id="unit-selection" class="flex flex-wrap justify-center gap-2 mb-8 p-3 bg-gray-100 rounded-lg">
+            <button class="unit-button bg-blue-500 text-white font-semibold py-2 px-4 rounded-full transition-colors duration-200" data-unit="unit-1">Unit 1</button>
+            <button class="unit-button bg-blue-500 text-white font-semibold py-2 px-4 rounded-full transition-colors duration-200" data-unit="unit-2">Unit 2</button>
+            <button class="unit-button bg-blue-500 text-white font-semibold py-2 px-4 rounded-full transition-colors duration-200" data-unit="unit-3">Unit 3</button>
+            <button class="unit-button bg-blue-500 text-white font-semibold py-2 px-4 rounded-full transition-colors duration-200" data-unit="unit-4">Unit 4</button>
+            <!-- Thêm các Unit khác tại đây -->
+        </div>
+
+        <!-- Main Tabs -->
+        <div class="border-b border-gray-200 mb-6">
+            <nav class="flex space-x-4 justify-center">
+                <button class="tab-button py-2 px-4 text-gray-500 hover:text-orange-500 transition-colors duration-200 active" data-section="vocab-section">
+                    <i class="fas fa-book mr-2"></i>Sổ Tay Từ Vựng
+                </button>
+                <button class="tab-button py-2 px-4 text-gray-500 hover:text-orange-500 transition-colors duration-200" data-section="quiz-section">
+                    <i class="fas fa-brain mr-2"></i>Luyện Tập
+                </button>
+                <button class="tab-button py-2 px-4 text-gray-500 hover:text-orange-500 transition-colors duration-200" data-section="results-section">
+                    <i class="fas fa-poll-h mr-2"></i>Kết Quả
+                </button>
+            </nav>
+        </div>
+
+        <!-- Sổ Tay Từ Vựng -->
+        <section id="vocab-section" class="main-section">
+            <h2 class="text-2xl font-bold text-gray-700 mb-4">Từ Vựng Unit: <span id="current-unit-title" class="text-emerald-600"></span></h2>
+            <div id="vocab-list" class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <!-- Thẻ từ vựng sẽ được chèn ở đây -->
+            </div>
+            <p id="no-vocab-message" class="text-center text-gray-500 mt-8 hidden">Không có dữ liệu từ vựng cho Unit này.</p>
+        </section>
+
+        <!-- Luyện Tập (Quiz) -->
+        <section id="quiz-section" class="main-section hidden">
+            <h2 class="text-2xl font-bold text-gray-700 mb-4">Chọn Bài Tập Luyện Tập</h2>
+            <div class="flex flex-wrap gap-3 mb-6">
+                <button class="quiz-type-button bg-emerald-500 text-white font-semibold py-2 px-4 rounded-lg transition-transform hover:scale-105" data-quiz="writing">
+                    <i class="fas fa-keyboard mr-2"></i>Viết Từ
+                </button>
+                <button class="quiz-type-button bg-purple-500 text-white font-semibold py-2 px-4 rounded-lg transition-transform hover:scale-105" data-quiz="multiple-choice">
+                    <i class="fas fa-list-ul mr-2"></i>Chọn Đáp Án
+                </button>
+                <button class="quiz-type-button bg-pink-500 text-white font-semibold py-2 px-4 rounded-lg transition-transform hover:scale-105" data-quiz="listening">
+                    <i class="fas fa-volume-up mr-2"></i>Nghe & Chọn
+                </button>
+                <button class="quiz-type-button bg-yellow-500 text-white font-semibold py-2 px-4 rounded-lg transition-transform hover:scale-105" data-quiz="matching">
+                    <i class="fas fa-link mr-2"></i>Ghép Từ với Nghĩa
+                </button>
+                <button class="quiz-type-button bg-red-500 text-white font-semibold py-2 px-4 rounded-lg transition-transform hover:scale-105" data-quiz="minigame">
+                    <i class="fas fa-gamepad mr-2"></i>Minigame Word Tetris
+                </button>
+            </div>
+
+            <!-- Giao diện chung cho Quiz (Writing, Multiple Choice) -->
+            <div id="active-quiz-section" class="hidden bg-gray-50 p-6 rounded-xl shadow-inner">
+                <div class="flex justify-between items-center mb-4">
+                    <p class="text-lg font-medium text-gray-600"><span id="current-quiz-title" class="text-blue-600 font-bold"></span></p>
+                    <p class="text-xl font-bold text-orange-600"><span id="current-question-index">1</span> / <span id="total-questions">10</span></p>
+                </div>
+
+                <!-- Timer -->
+                <div class="w-full bg-gray-200 rounded-full mb-6">
+                    <div id="timer-bar" class="timer-bar rounded-full" style="width: 100%;"></div>
+                </div>
+
+                <!-- Vùng hiển thị câu hỏi -->
+                <div id="quiz-content">
+                    <!-- Quiz: Writing -->
+                    <div id="writing-quiz-ui" class="text-center hidden">
+                        <p class="text-2xl font-semibold mb-4 text-gray-800">Nghĩa tiếng Việt:</p>
+                        <p id="writing-meaning" class="text-3xl font-extrabold text-indigo-700 mb-6"></p>
+                        <input type="text" id="writing-input" placeholder="Nhập từ tiếng Anh..." class="w-full max-w-sm p-3 border-2 border-gray-300 rounded-lg text-center text-xl focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all">
+                        <p id="writing-feedback" class="mt-4 text-xl font-bold min-h-[30px]"></p>
+                    </div>
+
+                    <!-- Quiz: Multiple Choice -->
+                    <div id="multiple-choice-quiz-ui" class="hidden">
+                        <p class="text-2xl font-semibold mb-4 text-gray-800">Chọn nghĩa đúng của từ:</p>
+                        <p id="mc-word" class="text-3xl font-extrabold text-indigo-700 mb-6 text-center"></p>
+                        <div id="mc-options" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Các lựa chọn sẽ được chèn ở đây -->
+                        </div>
+                    </div>
+
+                    <!-- Quiz: Matching (Ghép từ) -->
+                    <div id="matching-quiz-ui" class="hidden">
+                        <p class="text-2xl font-semibold mb-6 text-gray-800 text-center">Ghép Từ với Nghĩa tương ứng</p>
+                        <div class="grid grid-cols-2 gap-4 max-w-lg mx-auto">
+                            <div id="matching-words-column" class="flex flex-col gap-2">
+                                <h3 class="text-xl font-bold text-blue-600 border-b-2 pb-1 mb-2">Từ tiếng Anh</h3>
+                                <!-- Cards Word -->
+                            </div>
+                            <div id="matching-meanings-column" class="flex flex-col gap-2">
+                                <h3 class="text-xl font-bold text-emerald-600 border-b-2 pb-1 mb-2">Nghĩa tiếng Việt</h3>
+                                <!-- Cards Meaning -->
+                            </div>
+                        </div>
+                        <p id="matching-feedback" class="mt-4 text-xl font-bold text-center min-h-[30px]"></p>
+                    </div>
+
+                </div>
+
+                <!-- Nút Next Question chung -->
+                <div class="text-center mt-6">
+                    <button id="next-question" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-xl transition-transform transform hover:scale-105 shadow-md hidden">
+                        Câu Tiếp Theo <i class="fas fa-arrow-right ml-2"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Quiz: Listening (Nghe và Chọn) -->
+            <div id="listening-game-ui" class="hidden bg-gray-50 p-6 rounded-xl shadow-inner text-center">
+                <p class="text-2xl font-semibold mb-6 text-gray-800">Bấm nút Nghe và Chọn từ đúng:</p>
+                <div class="flex justify-center items-center mb-8">
+                    <button id="listening-play-button" class="bg-blue-600 hover:bg-blue-700 text-white w-16 h-16 rounded-full text-2xl transition-transform transform hover:scale-110">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <span id="listening-word" class="ml-4 text-3xl font-extrabold text-indigo-700"></span>
+                </div>
+                <div id="listening-options" class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-xl mx-auto">
+                    <!-- Các thẻ lựa chọn sẽ được chèn ở đây -->
+                </div>
+            </div>
+
+            <!-- Minigame Word Puzzle Tetris -->
+            <div id="minigame-ui" class="hidden bg-gray-50 p-6 rounded-xl shadow-inner text-center">
+                <h3 class="text-2xl font-bold text-orange-600 mb-4">Word Puzzle Tetris</h3>
+                <p class="text-gray-600 mb-4">Kéo thả các chữ cái rơi vào ô trống bên dưới để tạo thành từ có nghĩa tương ứng.</p>
+
+                <div id="gameArea" class="mx-auto"></div>
+                <div id="dropZoneGame" class="mx-auto"></div>
+                <div id="info" class="font-bold text-xl text-indigo-700 mt-4"></div>
+                <button id="checkBtn" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-6 rounded-lg transition-transform hover:scale-105 mt-4 mr-2">
+                    Kiểm tra từ
+                </button>
+                <button id="resetBtnGame" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-lg transition-transform hover:scale-105 mt-4" style="display:none;">
+                    Reset từ ghép
+                </button>
+                <div id="messageGame" class="mt-4 text-xl font-bold min-h-[30px]"></div>
+
+                <!-- Audio cho game -->
+                <audio id="dropSound" src="https://actions.google.com/sounds/v1/foley/wood_fall.ogg"></audio>
+                <audio id="successSound" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
+            </div>
+
+
+        </section>
+
+        <!-- Kết Quả -->
+        <section id="results-section" class="main-section hidden">
+            <h2 class="text-2xl font-bold text-gray-700 mb-4 text-center">Kết Quả Luyện Tập</h2>
+            <div class="bg-white p-8 rounded-xl shadow-lg border-t-4 border-orange-500">
+                <p class="text-xl mb-4"><span id="result-unit" class="font-bold text-emerald-600"></span> - Bài tập: <span id="result-type" class="font-bold text-blue-600"></span></p>
+                <p class="text-5xl font-extrabold text-center text-gray-800 mb-4"><span id="correct-count">0</span> / <span id="total-count">0</span></p>
+                <div id="result-message" class="text-center text-2xl font-bold text-orange-500">Tuyệt vời!</div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Firebase App/Auth/Firestore Import (Placeholder for environment setup) -->
+    <script type="module">
+        // Biến môi trường
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let app, db, auth;
+
+        // Nếu môi trường Firebase khả dụng (chỉ định cấu hình), thực hiện khởi tạo
+        if (firebaseConfig) {
+            import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+            import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+            import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, onSnapshot, collection, query, where, getDocs, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+            const initFirebase = async () => {
+                try {
+                    app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+
+                    // Bật log debug cho Firestore
+                    setLogLevel('debug');
+
+                    // Đăng nhập bằng token tùy chỉnh hoặc ẩn danh
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+
+                    console.log("Firebase initialized and signed in.");
+
+                    // Lắng nghe trạng thái Auth
+                    onAuthStateChanged(auth, (user) => {
+                        if (user) {
+                            window.userId = user.uid;
+                            console.log("User ID:", window.userId);
+                            // Có thể tải dữ liệu cá nhân ở đây nếu cần
+                        } else {
+                            window.userId = crypto.randomUUID(); // Dùng ID ngẫu nhiên nếu ẩn danh/chưa đăng nhập
+                            console.log("Signed out or anonymous. Generated random ID:", window.userId);
+                        }
+                    });
+
+                } catch (error) {
+                    console.error("Error initializing Firebase:", error);
+                    // Fallback to random ID if Firebase fails
+                    window.userId = crypto.randomUUID();
+                }
+            };
+            initFirebase();
+        } else {
+            // Không có Firebase, dùng ID ngẫu nhiên
+            window.userId = crypto.randomUUID();
+            console.log("Firebase config not found. Using random ID:", window.userId);
+        }
+    </script>
+
+    <script>
+        // --- DATA TỪ VỰNG TIẾNG ANH 10 GLOBAL SUCCESS (KNTT) ---
+        const vocabData = {
+            'unit-1': [
+                { word: 'nuclear family', meaning: 'gia đình hạt nhân', type: 'n' },
+                { word: 'extended family', meaning: 'đại gia đình', type: 'n' },
+                { word: 'breadwinner', meaning: 'người trụ cột (kiếm tiền)', type: 'n' },
+                { word: 'household chores', meaning: 'việc nhà', type: 'n' },
+                { word: 'laundry', meaning: 'quần áo bẩn/việc giặt ủi', type: 'n' },
+                { word: 'do the washing up', meaning: 'rửa bát đĩa', type: 'v phr' },
+                { word: 'groceries', meaning: 'thực phẩm và nhu yếu phẩm', type: 'n' },
+                { word: 'vulnerable', meaning: 'dễ bị tổn thương', type: 'adj' },
+                { word: 'caring', meaning: 'chu đáo, quan tâm', type: 'adj' },
+                { word: 'supportive', meaning: 'hỗ trợ, ủng hộ', type: 'adj' },
+            ],
+            'unit-2': [
+                { word: 'obesity', meaning: 'bệnh béo phì', type: 'n' },
+                { word: 'nutrition', meaning: 'dinh dưỡng', type: 'n' },
+                { word: 'lifestyle', meaning: 'lối sống', type: 'n' },
+                { word: 'allergy', meaning: 'dị ứng', type: 'n' },
+                { word: 'stressed', meaning: 'bị căng thẳng', type: 'adj' },
+                { word: 'balanced diet', meaning: 'chế độ ăn cân bằng', type: 'n phr' },
+                { word: 'junk food', meaning: 'đồ ăn vặt', type: 'n phr' },
+                { word: 'well-being', meaning: 'sự khỏe mạnh, hạnh phúc', type: 'n' },
+            ],
+            'unit-3': [
+                { word: 'painting', meaning: 'hội họa/bức tranh', type: 'n' },
+                { word: 'sculpture', meaning: 'điêu khắc/tác phẩm điêu khắc', type: 'n' },
+                { word: 'masterpiece', meaning: 'kiệt tác', type: 'n' },
+                { word: 'composer', meaning: 'nhà soạn nhạc', type: 'n' },
+                { word: 'exhibition', meaning: 'triển lãm', type: 'n' },
+                { word: 'abstract', meaning: 'trừu tượng', type: 'adj' },
+                { word: 'portrait', meaning: 'tranh chân dung', type: 'n' },
+                { word: 'venue', meaning: 'địa điểm tổ chức', type: 'n' },
+            ],
+            'unit-4': [
+                { word: 'earthquake', meaning: 'động đất', type: 'n' },
+                { word: 'volcano', meaning: 'núi lửa', type: 'n' },
+                { word: 'eruption', meaning: 'sự phun trào', type: 'n' },
+                { word: 'typhoon', meaning: 'bão nhiệt đới', type: 'n' },
+                { word: 'tsunami', meaning: 'sóng thần', type: 'n' },
+                { word: 'disaster', meaning: 'thảm họa', type: 'n' },
+                { word: 'evacuation', meaning: 'sự sơ tán', type: 'n' },
+                { word: 'aftershock', meaning: 'dư chấn', type: 'n' },
+            ]
+        };
+
+        let currentUnit = 'unit-1';
+        let currentQuizType = 'writing';
+        let currentQuizData = [];
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let timerInterval;
+        const MAX_ROUNDS = 10; // Số câu hỏi tối đa
+        const TIME_PER_QUESTION = 15; // 15 giây
+
+        // --- HÀM CHUNG ---
+
+        function showSection(sectionId) {
+            document.querySelectorAll('.main-section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            document.getElementById(sectionId).classList.remove('hidden');
+
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            document.querySelector(`.tab-button[data-section="${sectionId}"]`).classList.add('active');
+
+            if (sectionId !== 'quiz-section') {
+                // Đảm bảo không có quiz nào đang chạy khi chuyển tab
+                document.getElementById('active-quiz-section').classList.add('hidden');
+                document.getElementById('listening-game-ui').classList.add('hidden');
+                document.getElementById('minigame-ui').classList.add('hidden');
+            }
+        }
+
+        function selectUnit(unitId) {
+            currentUnit = unitId;
+            document.getElementById('current-unit-title').textContent = unitId.replace('unit-', 'Unit ');
+
+            document.querySelectorAll('.unit-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            document.querySelector(`.unit-button[data-unit="${unitId}"]`).classList.add('active');
+
+            displayVocab(unitId);
+        }
+
+        function displayVocab(unitId) {
+            const list = document.getElementById('vocab-list');
+            list.innerHTML = '';
+            const words = vocabData[unitId];
+
+            if (!words || words.length === 0) {
+                document.getElementById('no-vocab-message').classList.remove('hidden');
+                return;
+            }
+            document.getElementById('no-vocab-message').classList.add('hidden');
+
+            words.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'vocab-card p-4 rounded-xl shadow-md';
+                card.innerHTML = `
+                    <p class="text-xl font-bold text-gray-900">${item.word}</p>
+                    <p class="text-sm font-medium text-blue-500 mb-1">(${item.type})</p>
+                    <p class="text-gray-600">${item.meaning}</p>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        function startQuiz(quizType) {
+            currentQuizType = quizType;
+            score = 0;
+            currentQuestionIndex = 0;
+            const unitWords = vocabData[currentUnit];
+
+            if (!unitWords || unitWords.length < 5) {
+                alert("Không đủ từ vựng để tạo bài quiz (cần ít nhất 5 từ).");
+                return;
+            }
+
+            // Chọn ngẫu nhiên tối đa MAX_ROUNDS từ cho quiz
+            currentQuizData = shuffleArray([...unitWords]).slice(0, MAX_ROUNDS);
+
+            // Ẩn tất cả quiz UI và hiển thị UI chung
+            document.getElementById('writing-quiz-ui').classList.add('hidden');
+            document.getElementById('multiple-choice-quiz-ui').classList.add('hidden');
+            document.getElementById('listening-game-ui').classList.add('hidden');
+            document.getElementById('matching-quiz-ui').classList.add('hidden');
+            document.getElementById('minigame-ui').classList.add('hidden');
+            document.getElementById('next-question').classList.add('hidden');
+            document.getElementById('writing-feedback').textContent = '';
+            document.getElementById('matching-feedback').textContent = '';
+
+            // Cập nhật tiêu đề quiz
+            let title = '';
+            let activeQuizId = 'active-quiz-section';
+
+            if (quizType === 'writing') {
+                title = 'Viết Từ';
+                document.getElementById('writing-quiz-ui').classList.remove('hidden');
+            } else if (quizType === 'multiple-choice') {
+                title = 'Chọn Đáp Án';
+                document.getElementById('multiple-choice-quiz-ui').classList.remove('hidden');
+            } else if (quizType === 'listening') {
+                title = 'Nghe & Chọn';
+                activeQuizId = 'listening-game-ui';
+                startListeningGame();
+            } else if (quizType === 'matching') {
+                title = 'Ghép Từ với Nghĩa';
+                document.getElementById('matching-quiz-ui').classList.remove('hidden');
+                startMatchingGame();
+            } else if (quizType === 'minigame') {
+                title = 'Minigame Word Tetris';
+                activeQuizId = 'minigame-ui';
+                document.getElementById('minigame-ui').classList.remove('hidden');
+                startGameTetris(); // Khởi động minigame
+            }
+
+            document.getElementById('current-quiz-title').textContent = title;
+            document.getElementById('active-quiz-section').classList.remove('hidden');
+
+            if (quizType !== 'listening' && quizType !== 'matching' && quizType !== 'minigame') {
+                document.getElementById(activeQuizId).classList.remove('hidden');
+                document.getElementById('total-questions').textContent = currentQuizData.length;
+                nextQuestion();
+            } else if (quizType === 'minigame') {
+                document.getElementById('active-quiz-section').classList.add('hidden');
+                document.getElementById('minigame-ui').classList.remove('hidden');
+            } else if (quizType === 'matching') {
+                 document.getElementById('active-quiz-section').classList.remove('hidden');
+            }
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            let timeLeft = TIME_PER_QUESTION;
+            const timerBar = document.getElementById('timer-bar');
+            timerBar.style.width = '100%';
+            timerBar.style.backgroundColor = '#3b82f6';
+
+            timerInterval = setInterval(() => {
+                timeLeft -= 0.1; // Giảm 0.1 giây để tạo chuyển động mượt mà hơn
+                const percentage = (timeLeft / TIME_PER_QUESTION) * 100;
+                timerBar.style.width = percentage + '%';
+
+                if (percentage < 30) {
+                    timerBar.style.backgroundColor = '#ef4444'; // Đỏ khi gần hết giờ
+                }
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    handleTimeout();
+                }
+            }, 100);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+        }
+
+        function handleTimeout() {
+            if (currentQuizType === 'writing') {
+                const correctWord = currentQuizData[currentQuestionIndex - 1].word;
+                document.getElementById('writing-feedback').textContent = `Hết giờ! Đáp án đúng là: ${correctWord}`;
+                document.getElementById('writing-feedback').style.color = 'orange';
+                document.getElementById('next-question').classList.remove('hidden');
+                document.getElementById('writing-input').disabled = true;
+            } else if (currentQuizType === 'multiple-choice') {
+                revealCorrectAnswer();
+                document.getElementById('next-question').classList.remove('hidden');
+            }
+        }
+
+        function nextQuestion() {
+            stopTimer();
+
+            if (currentQuestionIndex >= currentQuizData.length) {
+                endQuiz();
+                return;
+            }
+
+            document.getElementById('current-question-index').textContent = currentQuestionIndex + 1;
+            document.getElementById('next-question').classList.add('hidden');
+
+            if (currentQuizType === 'writing') {
+                loadWritingQuestion(currentQuizData[currentQuestionIndex]);
+            } else if (currentQuizType === 'multiple-choice') {
+                loadMultipleChoiceQuestion(currentQuizData[currentQuestionIndex]);
+            }
+
+            currentQuestionIndex++;
+            startTimer();
+        }
+
+        function endQuiz() {
+            document.getElementById('active-quiz-section').classList.add('hidden');
+            displayResults(score, currentQuizData.length);
+            showSection('results-section');
+        }
+
+        function displayResults(correctCount, totalCount) {
+            document.getElementById('result-unit').textContent = currentUnit.replace('unit-', 'Unit ');
+            document.getElementById('result-type').textContent = document.getElementById('current-quiz-title').textContent;
+            document.getElementById('correct-count').textContent = correctCount;
+            document.getElementById('total-count').textContent = totalCount;
+
+            const messageEl = document.getElementById('result-message');
+            const percentage = (correctCount / totalCount) * 100;
+
+            if (percentage === 100) {
+                messageEl.textContent = 'Hoàn hảo! 🎉';
+                messageEl.style.color = '#10b981'; // Emerald
+            } else if (percentage >= 70) {
+                messageEl.textContent = 'Rất tốt! Cố gắng thêm chút nữa.';
+                messageEl.style.color = '#f59e0b'; // Amber
+            } else {
+                messageEl.textContent = 'Tiếp tục luyện tập nhé!';
+                messageEl.style.color = '#ef4444'; // Red
+            }
+        }
+
+        // --- HÀM HỖ TRỢ ---
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function getOppositeWords(correctWord) {
+            const allWords = Object.values(vocabData).flat();
+            const wrongWords = allWords.filter(item => item.word !== correctWord).map(item => item.meaning);
+            return shuffleArray(wrongWords).slice(0, 3);
+        }
+
+        // --- QUIZ TYPE LOGIC ---
+
+        // 1. Logic Viết Từ
+        function loadWritingQuestion(data) {
+            document.getElementById('writing-meaning').textContent = data.meaning;
+            const inputEl = document.getElementById('writing-input');
+            inputEl.value = '';
+            inputEl.disabled = false;
+            document.getElementById('writing-feedback').textContent = '';
+            inputEl.focus();
+
+            inputEl.onkeypress = function(e) {
+                if (e.key === 'Enter') {
+                    checkWritingAnswer(data.word);
+                }
+            };
+        }
+
+        function checkWritingAnswer(correctWord) {
+            stopTimer();
+            const inputEl = document.getElementById('writing-input');
+            const feedbackEl = document.getElementById('writing-feedback');
+            const userAnswer = inputEl.value.trim().toLowerCase();
+
+            inputEl.disabled = true;
+
+            if (userAnswer === correctWord.toLowerCase()) {
+                feedbackEl.textContent = 'Chính xác! 🎉';
+                feedbackEl.style.color = 'green';
+                score++;
+            } else {
+                feedbackEl.textContent = `Sai rồi. Đáp án đúng là: ${correctWord}`;
+                feedbackEl.style.color = 'red';
+            }
+
+            document.getElementById('next-question').classList.remove('hidden');
+        }
+
+        // 2. Logic Chọn Đáp Án
+        function loadMultipleChoiceQuestion(data) {
+            const word = data.word;
+            const meaning = data.meaning;
+            document.getElementById('mc-word').textContent = word;
+
+            const optionsContainer = document.getElementById('mc-options');
+            optionsContainer.innerHTML = '';
+            optionsContainer.dataset.correct = meaning; // Lưu đáp án đúng
+
+            // Tạo 3 đáp án sai
+            const allMeanings = vocabData[currentUnit].map(item => item.meaning);
+            const wrongMeanings = allMeanings.filter(m => m !== meaning);
+            const shuffledWrong = shuffleArray(wrongMeanings).slice(0, 3);
+
+            // Gộp đáp án đúng và sai
+            const options = shuffleArray([meaning, ...shuffledWrong]);
+
+            options.forEach(option => {
+                const card = document.createElement('div');
+                card.className = 'quiz-card p-4 border rounded-xl text-center shadow-sm hover:shadow-md';
+                card.textContent = option;
+                card.onclick = () => checkMultipleChoiceAnswer(card, option, meaning);
+                optionsContainer.appendChild(card);
+            });
+        }
+
+        function checkMultipleChoiceAnswer(card, selectedOption, correctMeaning) {
+            stopTimer();
+            const optionsContainer = document.getElementById('mc-options');
+            Array.from(optionsContainer.children).forEach(opt => opt.onclick = null); // Vô hiệu hóa click
+
+            if (selectedOption === correctMeaning) {
+                card.classList.add('correct');
+                score++;
+            } else {
+                card.classList.add('incorrect');
+                // Highlight đáp án đúng
+                revealCorrectAnswer();
+            }
+
+            document.getElementById('next-question').classList.remove('hidden');
+        }
+
+        function revealCorrectAnswer() {
+            const correctMeaning = document.getElementById('mc-options').dataset.correct;
+            Array.from(document.getElementById('mc-options').children).forEach(card => {
+                if (card.textContent === correctMeaning) {
+                    card.classList.add('correct');
+                }
+            });
+        }
+
+        // 3. Logic Ghép Từ (Matching)
+        let selectedWordCard = null;
+        let selectedMeaningCard = null;
+        let matchedCount = 0;
+
+        function startMatchingGame() {
+            matchedCount = 0;
+            document.getElementById('matching-feedback').textContent = '';
+            document.getElementById('active-quiz-section').classList.remove('hidden');
+            document.getElementById('total-questions').textContent = currentQuizData.length;
+            
+            const wordsColumn = document.getElementById('matching-words-column');
+            const meaningsColumn = document.getElementById('matching-meanings-column');
+            wordsColumn.innerHTML = '<h3 class="text-xl font-bold text-blue-600 border-b-2 pb-1 mb-2">Từ tiếng Anh</h3>';
+            meaningsColumn.innerHTML = '<h3 class="text-xl font-bold text-emerald-600 border-b-2 pb-1 mb-2">Nghĩa tiếng Việt</h3>';
+            
+            // Xáo trộn và lấy dữ liệu
+            const wordsToMatch = shuffleArray([...currentQuizData]);
+            const meaningsToMatch = shuffleArray([...wordsToMatch.map(item => ({ word: item.word, meaning: item.meaning }))]);
+
+            wordsToMatch.forEach(item => {
+                const card = createMatchCard(item.word, 'word', item.word);
+                wordsColumn.appendChild(card);
+            });
+
+            meaningsToMatch.forEach(item => {
+                const card = createMatchCard(item.meaning, 'meaning', item.word);
+                meaningsColumn.appendChild(card);
+            });
+        }
+
+        function createMatchCard(text, type, dataValue) {
+            const card = document.createElement('div');
+            card.className = `match-card ${type} p-3 rounded-lg shadow-sm`;
+            card.textContent = text;
+            card.dataset.match = dataValue; // Lưu từ tiếng Anh làm khóa ghép
+            card.dataset.type = type;
+            card.onclick = () => handleMatchClick(card);
+            return card;
+        }
+
+        function handleMatchClick(card) {
+            if (card.classList.contains('matched')) return;
+
+            const type = card.dataset.type;
+            
+            if (type === 'word') {
+                if (selectedWordCard) selectedWordCard.classList.remove('selected');
+                selectedWordCard = card;
+            } else { // meaning
+                if (selectedMeaningCard) selectedMeaningCard.classList.remove('selected');
+                selectedMeaningCard = card;
+            }
+            
+            card.classList.add('selected');
+
+            // Kiểm tra ghép đôi
+            if (selectedWordCard && selectedMeaningCard) {
+                const wordKey = selectedWordCard.dataset.match;
+                const meaningKey = selectedMeaningCard.dataset.match;
+
+                if (wordKey === meaningKey) {
+                    // Ghép đúng
+                    score++;
+                    matchedCount++;
+                    
+                    selectedWordCard.classList.remove('selected');
+                    selectedMeaningCard.classList.remove('selected');
+
+                    selectedWordCard.classList.add('matched');
+                    selectedMeaningCard.classList.add('matched');
+
+                    document.getElementById('matching-feedback').textContent = 'Ghép đúng! ✅';
+                    document.getElementById('matching-feedback').style.color = 'green';
+                    
+                    if (matchedCount === currentQuizData.length) {
+                        setTimeout(() => {
+                             document.getElementById('matching-feedback').textContent = 'Hoàn thành bài tập! 🎉';
+                             endQuiz(); // Kết thúc quiz
+                        }, 500);
+                    }
+                } else {
+                    // Ghép sai
+                    document.getElementById('matching-feedback').textContent = 'Ghép sai. Thử lại! ❌';
+                    document.getElementById('matching-feedback').style.color = 'red';
+                    
+                    // Bỏ chọn sau 500ms
+                    setTimeout(() => {
+                        selectedWordCard?.classList.remove('selected');
+                        selectedMeaningCard?.classList.remove('selected');
+                        document.getElementById('matching-feedback').textContent = '';
+                    }, 500);
+                }
+
+                selectedWordCard = null;
+                selectedMeaningCard = null;
+            }
+        }
+
+        // 4. Logic Nghe & Chọn (Listening)
+        const MAX_LISTENING_ROUNDS = 5;
+        let listeningData = [];
+        let listeningRound = 0;
+        let selectedWord = null;
+        let timedOut = false;
+
+        function startListeningGame() {
+            listeningRound = 0;
+            score = 0;
+            document.getElementById('active-quiz-section').classList.add('hidden');
+            document.getElementById('listening-game-ui').classList.remove('hidden');
+            document.getElementById('total-questions').textContent = MAX_LISTENING_ROUNDS;
+
+            const unitWords = vocabData[currentUnit];
+            if (!unitWords || unitWords.length < 5) {
+                alert("Không đủ từ vựng để tạo bài nghe (cần ít nhất 5 từ).");
+                showSection('quiz-section');
+                return;
+            }
+
+            listeningData = shuffleArray([...unitWords]).slice(0, MAX_LISTENING_ROUNDS);
+            nextListeningQuestion();
+        }
+
+        function nextListeningQuestion() {
+            stopTimer();
+
+            if (listeningRound >= MAX_LISTENING_ROUNDS) {
+                endListeningGame();
+                return;
+            }
+
+            const currentItem = listeningData[listeningRound];
+            selectedWord = currentItem.word;
+            timedOut = false;
+            listeningRound++;
+
+            document.getElementById('current-question-index').textContent = listeningRound;
+            document.getElementById('next-question').classList.add('hidden');
+            document.getElementById('next-question').onclick = nextListeningQuestion;
+            document.getElementById('listening-word').textContent = '';
+
+            const optionsContainer = document.getElementById('listening-options');
+            optionsContainer.innerHTML = '';
+            
+            // Xóa hết class correct/incorrect
+            Array.from(optionsContainer.children).forEach(card => {
+                card.classList.remove('correct', 'incorrect');
+                card.onclick = null;
+            });
+
+
+            // Tạo 3 đáp án sai (dùng nghĩa để làm thẻ)
+            const allMeanings = vocabData[currentUnit].map(item => item.meaning);
+            const wrongMeanings = allMeanings.filter(m => m !== currentItem.meaning);
+            const shuffledWrong = shuffleArray(wrongMeanings).slice(0, 3);
+            
+            // Gộp đáp án đúng và sai
+            const options = shuffleArray([currentItem.meaning, ...shuffledWrong]);
+
+            options.forEach(option => {
+                const card = document.createElement('div');
+                card.className = 'quiz-card p-4 border rounded-xl text-center shadow-sm hover:shadow-md text-sm md:text-base';
+                card.textContent = option;
+                card.dataset.word = vocabData[currentUnit].find(item => item.meaning === option)?.word; // Lấy từ tiếng Anh tương ứng
+                card.onclick = () => checkListeningAnswer(card, card.dataset.word, selectedWord);
+                optionsContainer.appendChild(card);
+            });
+
+            // Tự động phát âm khi load câu hỏi mới
+            speak(selectedWord);
+
+            document.getElementById('listening-play-button').onclick = () => speak(selectedWord);
+            startTimerListening();
+        }
+        
+        // Cần thay đổi logic timer cho Listening vì nó không dùng chung với Writing/MC
+        function startTimerListening() {
+            clearInterval(timerInterval);
+            let timeLeft = TIME_PER_QUESTION;
+            const timerBar = document.getElementById('timer-bar');
+            timerBar.style.width = '100%';
+            timerBar.style.backgroundColor = '#3b82f6';
+
+            timerInterval = setInterval(() => {
+                timeLeft -= 0.1;
+                const percentage = (timeLeft / TIME_PER_QUESTION) * 100;
+                timerBar.style.width = percentage + '%';
+
+                if (percentage < 30) {
+                    timerBar.style.backgroundColor = '#ef4444';
+                }
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    timedOut = true;
+                    checkListeningAnswer(null, null, selectedWord); // Xử lý hết giờ
+                }
+            }, 100);
+        }
+
+        function speak(text) {
+             // Sử dụng Web Speech API cho chức năng TTS cơ bản
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'en-US'; // Đặt ngôn ngữ là Tiếng Anh
+                window.speechSynthesis.speak(utterance);
+            } else {
+                console.warn("Trình duyệt không hỗ trợ Web Speech API.");
+            }
+        }
+
+
+        function checkListeningAnswer(card, clickedWord, correctWord) {
+            stopTimer();
+            document.getElementById('listening-word').textContent = correctWord; // Hiển thị từ đúng
+
+            const optionsContainer = document.getElementById('listening-options');
+            Array.from(optionsContainer.children).forEach(opt => opt.onclick = null); // Vô hiệu hóa click
+
+            let isCorrect = clickedWord && (clickedWord.toLowerCase() === correctWord.toLowerCase());
+
+            if (isCorrect) {
+                if(card) card.classList.add('correct');
+                score += 10; // Giả sử mỗi câu 10 điểm
+            } else {
+                if(card) card.classList.add('incorrect');
+                // Highlight đáp án đúng
+                Array.from(optionsContainer.children).forEach(opt => {
+                    if (opt.dataset.word && opt.dataset.word.toLowerCase() === correctWord.toLowerCase()) {
+                        opt.classList.add('correct');
+                    }
+                });
+            }
+
+            document.getElementById('next-question').classList.remove('hidden');
+        }
+
+        function endListeningGame() {
+            document.getElementById("listening-game-ui").classList.add("hidden");
+            document.getElementById("active-quiz-section").classList.add("hidden");
+
+            // Chuyển kết quả sang giao diện chung
+            const correctCount = score / 10;
+            displayResults(correctCount, MAX_LISTENING_ROUNDS);
+            showSection('results-section');
+        }
+
+        // 5. Logic Minigame Word Puzzle Tetris
+
+        const wordsTetris = [
+            {word:"family", meaning:"Gia đình"},
+            {word:"home", meaning:"Nhà"},
+            {word:"caring", meaning:"Chu đáo/Quan tâm"},
+            {word:"share", meaning:"Chia sẻ"},
+            {word:"clean", meaning:"Dọn dẹp"},
+            {word:"happy", meaning:"Hạnh phúc"},
+            {word:"support", meaning:"Ủng hộ/Hỗ trợ"},
+            {word:"work", meaning:"Làm việc/Công việc"}
+        ];
+
+        const cols = 8;
+        const rows = 10;
+        const cellSize = 50;
+        let currentWordTetris = {};
+        let fallingLetters = [];
+        let grid = [];
+        let gameLoopInterval;
+
+        const colors = ["#e3401e","#24a8d1","#e81c8f","#1ed93f","#ed7715","#7628d4","#0fd6af","#ffce03"];
+
+        const gameArea = document.getElementById("gameArea");
+        const dropZone = document.getElementById("dropZoneGame");
+        const message = document.getElementById("messageGame");
+        const resetBtn = document.getElementById("resetBtnGame");
+        const info = document.getElementById("info");
+        const dropSound = document.getElementById("dropSound");
+        const successSound = document.getElementById("successSound");
+
+        function initGridTetris() {
+            grid = Array.from({length: rows},()=>Array(cols).fill(null));
+            gameArea.innerHTML = "";
+            fallingLetters = [];
+            clearInterval(gameLoopInterval);
+        }
+
+        function startGameTetris(){
+            initGridTetris();
+
+            message.textContent="";
+            dropZone.innerHTML="";
+            resetBtn.style.display = "none";
+            info.textContent = "";
+
+            currentWordTetris = wordsTetris[Math.floor(Math.random()*wordsTetris.length)];
+            info.textContent = "Nghĩa cần tìm: " + currentWordTetris.meaning;
+
+            // tạo ô ghép
+            for(let i=0;i<currentWordTetris.word.length;i++){
+                const slot = document.createElement("div");
+                slot.className = "dropSlotGame";
+                slot.dataset.index = i;
+                dropZone.appendChild(slot);
+            }
+
+            // tạo chữ rơi liên tục
+            gameLoopInterval = setInterval(()=> {
+                const extraLetters = "abcdefghiklmnopqrstuvwxyz".split('').filter(l=>!currentWordTetris.word.includes(l));
+                // 70% rơi chữ đúng, 30% rơi chữ sai
+                const isCorrect = Math.random() < 0.7; 
+                let char;
+
+                if (isCorrect) {
+                    const wordChars = currentWordTetris.word.split('');
+                    char = wordChars[Math.floor(Math.random()*wordChars.length)];
+                } else {
+                    char = extraLetters[Math.floor(Math.random()*extraLetters.length)];
+                }
+
+                createLetterTetris(char);
+            }, 1500); // Rơi 1.5 giây/chữ
+
+            updateTetris();
+        }
+
+        function createLetterTetris(char){
+            const letter = document.createElement("div");
+            const letterId = 'L' + Date.now() + Math.random().toString(16).slice(2);
+            letter.className = "letter";
+            letter.textContent=char;
+            letter.id = letterId;
+            const col = Math.floor(Math.random()*(cols));
+            letter.style.left = col * cellSize + "px";
+            letter.style.top = "0px";
+            letter.style.background = colors[Math.floor(Math.random()*colors.length)];
+            gameArea.appendChild(letter);
+
+            letter.draggable = true;
+            letter.addEventListener("dragstart", dragStartTetris);
+
+            fallingLetters.push({el:letter,row:0,col:col,speed:0.02, id:letterId}); // speed thấp, dùng update()
+        }
+
+        function dragStartTetris(e){
+            e.dataTransfer.setData("text/plain", e.target.textContent); // Chữ
+            e.dataTransfer.setData("application/letter-id", e.target.id); // ID để xóa sau khi thả
+
+             // Tạo hình ảnh kéo tuỳ chỉnh
+            const dragImage = e.target.cloneNode(true);
+            dragImage.style.position = 'fixed';
+            dragImage.style.top = '-100px';
+            document.body.appendChild(dragImage);
+            e.dataTransfer.setDragImage(dragImage, 25, 25);
+            setTimeout(() => document.body.removeChild(dragImage), 0);
+        }
+
+        dropZone.addEventListener("dragover", e=>e.preventDefault());
+        dropZone.addEventListener("drop", e=>{
+            e.preventDefault();
+            const letter = e.dataTransfer.getData("text/plain");
+            const id = e.dataTransfer.getData("application/letter-id");
+            const target = e.target;
+            
+            if(target.classList.contains("dropSlotGame") && target.textContent===""){
+                target.textContent = letter.toUpperCase(); // In hoa cho đồng nhất
+                target.style.backgroundColor = 'rgb(255, 240, 200)';
+
+                const dragged = document.getElementById(id);
+                if(dragged) dragged.remove();
+                
+                // Loại bỏ khỏi fallingLetters và lưới
+                let index = fallingLetters.findIndex(l=>l.id===id);
+                if(index !== -1){
+                    const letterObj = fallingLetters[index];
+                    fallingLetters.splice(index,1);
+                    // Clear cell cũ trong lưới để tránh ảnh hưởng logic rơi
+                    if(grid[Math.round(letterObj.row)] && grid[Math.round(letterObj.row)][letterObj.col] === letterObj.el.textContent){
+                        grid[Math.round(letterObj.row)][letterObj.col] = null;
+                    }
+                }
+                
+                dropSound.play();
+                message.textContent = ''; // Xóa thông báo nếu đang có lỗi
+            }
+        });
+
+        document.getElementById("checkBtn").addEventListener("click",()=>{
+            const formedWord=Array.from(dropZone.children).map(slot=>slot.textContent).join('').toLowerCase();
+            const correctWord = currentWordTetris.word.toLowerCase();
+
+            if(formedWord===correctWord){
+                message.textContent="Chính xác! Từ tìm được là: " + currentWordTetris.word.toUpperCase() + " 🎉";
+                message.style.color="green";
+                successSound.play();
+                score += 1; // Tăng điểm cho minigame
+                clearInterval(gameLoopInterval);
+                setTimeout(startGameTetris, 3000); // Chơi từ mới sau 3s
+            }else{
+                message.textContent="Sai rồi, thử lại! ❌";
+                message.style.color="red";
+                resetBtn.style.display="inline-block";
+            }
+        });
+
+        resetBtn.addEventListener("click",()=>{
+            Array.from(dropZone.children).forEach(slot=>{
+                slot.textContent="";
+                slot.style.backgroundColor = '#ffffff';
+            });
+            resetBtn.style.display="none";
+            message.textContent="";
+        });
+
+        function updateTetris(){
+            // Xóa chữ cái đã rơi khỏi gameArea khỏi fallingLetters
+            fallingLetters = fallingLetters.filter(l => gameArea.contains(l.el));
+
+            fallingLetters.forEach(letter=>{
+                // Kiểm tra va chạm ở ô tiếp theo (làm tròn lên để kiểm tra ô rơi)
+                let nextRow = Math.floor(letter.row) + 1;
+                
+                if(nextRow < rows && grid[nextRow][letter.col] === null){
+                    // Nếu chưa chạm đáy hoặc không có vật cản
+                    // Xóa vị trí cũ trong lưới (chỉ khi nó đã được đánh dấu)
+                    if(grid[Math.floor(letter.row)][letter.col] === letter.el.textContent) {
+                        grid[Math.floor(letter.row)][letter.col] = null;
+                    }
+
+                    letter.row += letter.speed * 5; // Tăng tốc độ rơi
+
+                    // Cập nhật vị trí mới trong lưới khi nó hoàn toàn rơi vào ô mới
+                    grid[Math.floor(letter.row)][letter.col] = letter.el.textContent; 
+
+                } else {
+                    // Đã chạm đáy hoặc va chạm
+                    letter.row = Math.floor(letter.row); // Đảm bảo vị trí nằm gọn trong ô
+                    // Đánh dấu vị trí cuối cùng vào lưới
+                    grid[letter.row][letter.col] = letter.el.textContent;
+                    
+                    // Kiểm tra Game Over (chữ rơi vào hàng đầu tiên)
+                    if(letter.row <= 0) {
+                        clearInterval(gameLoopInterval);
+                        message.textContent = "GAME OVER! Từ đúng là: " + currentWordTetris.word.toUpperCase();
+                        message.style.color = 'red';
+                        setTimeout(startGameTetris, 5000); // Khởi động lại sau 5 giây
+                    }
+                }
+                
+                letter.el.style.top = letter.row * cellSize + "px";
+                letter.el.style.left = letter.col * cellSize + "px";
+            });
+
+            checkLineClearTetris();
+            requestAnimationFrame(updateTetris);
+        }
+
+        function checkLineClearTetris(){
+            let linesCleared = 0;
+            for(let r=rows-1;r>=0;r--){
+                if(grid[r].every(cell=>cell!==null)){
+                    linesCleared++;
+                    
+                    // Xóa chữ cái khỏi DOM
+                    grid[r].forEach((_,c)=>{
+                        const letterEl = Array.from(gameArea.children).find(l=>
+                            parseInt(l.style.left) === c*cellSize && 
+                            parseInt(l.style.top) === r*cellSize
+                        );
+                        if(letterEl) letterEl.remove();
+                    });
+
+                    // Di chuyển các hàng trên xuống
+                    for(let rr=r-1; rr>=0; rr--){
+                        for(let c=0;c<cols;c++){
+                            grid[rr+1][c] = grid[rr][c];
+                            if(grid[rr][c]){
+                                const letterEl = Array.from(gameArea.children).find(l=>
+                                    l.textContent===grid[rr][c] && 
+                                    parseInt(l.style.left) === c*cellSize && 
+                                    parseInt(l.style.top) === rr*cellSize
+                                );
+                                if(letterEl) letterEl.style.top = (rr+1)*cellSize + "px";
+                            }
+                            grid[rr][c] = null;
+                        }
+                    }
+                    r++; // Kiểm tra lại hàng hiện tại sau khi di chuyển
+                }
+            }
+            if (linesCleared > 0) {
+                 dropSound.play(); // Dùng lại sound drop khi clear
+            }
+        }
+
+        // --- KHỞI TẠO ỨNG DỤNG ---
+        window.onload = function() {
+            // Thiết lập sự kiện cho các nút tab
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.addEventListener('click', function() {
+                    const sectionId = this.getAttribute('data-section');
+                    showSection(sectionId);
+                });
+            });
+
+            // Thiết lập sự kiện cho nút Unit
+            document.querySelectorAll('.unit-button').forEach(button => {
+                button.addEventListener('click', function() {
+                    selectUnit(this.getAttribute('data-unit'));
+                });
+            });
+
+            // Thiết lập sự kiện cho nút Quiz Type
+            document.querySelectorAll('.quiz-type-button').forEach(button => {
+                button.addEventListener('click', function() {
+                    const quizType = this.getAttribute('data-quiz');
+                    // Tắt minigame loop nếu đang chạy
+                    if (gameLoopInterval) {
+                        clearInterval(gameLoopInterval);
+                    }
+                    if (quizType === 'writing') {
+                        document.getElementById('writing-input').onkeyup = function(e) {
+                            if (e.key === 'Enter') {
+                                // Kiểm tra xem đã có dữ liệu quiz chưa để tránh lỗi
+                                if (currentQuizData.length > 0 && currentQuestionIndex > 0) {
+                                    checkWritingAnswer(currentQuizData[currentQuestionIndex - 1].word);
+                                }
+                            }
+                        };
+                    }
+                    startQuiz(quizType);
+                });
+            });
+
+            // Thiết lập sự kiện cho nút "Câu Tiếp Theo"
+            document.getElementById('next-question').onclick = nextQuestion;
+
+            // Thiết lập sự kiện cho nút check answer của Writing Quiz
+            document.getElementById('writing-input').onkeyup = function(e) {
+                if (e.key === 'Enter' && !this.disabled && currentQuizData.length > 0 && currentQuestionIndex > 0) {
+                    checkWritingAnswer(currentQuizData[currentQuestionIndex - 1].word);
+                }
+            };
+
+
+            // Chọn Unit 1 và loại quiz Viết Từ khi tải trang
+            selectUnit('unit-1');
+            startQuiz('writing'); // Tự động khởi tạo quiz đầu tiên
+        };
+    </script>
+</body>
+</html>
