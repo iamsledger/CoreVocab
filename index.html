@@ -573,7 +573,7 @@
             welcome.classList.remove('welcome-hidden');
         }
 
-        // --- VOCABULARY DATA ---
+        // --- VOCABULARY DATA (Rút gọn) ---
         const allVocabData = {
           "10": {
             "unit-1": {
@@ -1458,7 +1458,7 @@
             }
           }
         };
-
+        
         let currentGrade = "10";
         let currentUnit = "unit-1";
         let currentIndex = 0;
@@ -1689,76 +1689,46 @@
             `).join('');
         }
 
-        // --- IMPROVED VOICE LOGIC ---
+        // --- IMPROVED VOICE LOGIC FOR MOBILE ---
         function getBestVoiceAndConfig(gender) {
             const voices = window.speechSynthesis.getVoices();
-            let enVoices = voices.filter(v => v.lang.includes('en'));
+            // Lọc các giọng tiếng Anh
+            let enVoices = voices.filter(v => v.lang.startsWith('en'));
+            
+            // Nếu không tìm thấy giọng tiếng Anh, dùng bất kỳ giọng nào
             if (enVoices.length === 0) enVoices = voices;
 
-            const maleKeywords = ["male", "man", "boy", "david", "daniel", "mark", "james", "fred", "aaron", "gordon", "russell", "rishi", "arthur", "martin", "microsoft david", "microsoft mark", "microsoft richard"];
-            const femaleKeywords = ["female", "woman", "girl", "zira", "samantha", "linda", "catherine", "moira", "tessa", "alice", "susan", "helena", "google us english", "microsoft zira", "microsoft hazel", "microsoft heera"];
+            // Cố gắng tìm giọng nam/nữ rõ ràng dựa trên tên
+            const maleVoice = enVoices.find(v => v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('david') || v.name.toLowerCase().includes('daniel'));
+            const femaleVoice = enVoices.find(v => v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('samantha') || v.name.toLowerCase().includes('google us'));
 
-            // Helper to check gender based on name
-            const checkGender = (name) => {
-                name = name.toLowerCase();
-                if (maleKeywords.some(k => name.includes(k)) && !femaleKeywords.some(k => name.includes(k) && !name.includes("google"))) return 'male';
-                if (femaleKeywords.some(k => name.includes(k)) && !maleKeywords.some(k => name.includes(k))) return 'female';
-                return 'neutral';
-            };
-
-            // Identify best candidates explicitly
-            let maleCandidate = enVoices.find(v => checkGender(v.name) === 'male');
-            let femaleCandidate = enVoices.find(v => checkGender(v.name) === 'female');
-
-            // Heuristics: Google US English is often female-sounding if not explicitly labeled
-            if (!femaleCandidate) {
-                femaleCandidate = enVoices.find(v => v.name.toLowerCase().includes("google us english"));
-            }
-
-            let selectedVoice;
+            let selectedVoice = null;
             let pitch = 1.0;
-            let rate = 0.9;
+            let rate = 0.9; // Tốc độ hơi chậm cho dễ nghe
 
             if (gender === 'male') {
-                if (maleCandidate) {
-                    selectedVoice = maleCandidate;
+                if (maleVoice) {
+                    // Nếu có giọng nam thực sự
+                    selectedVoice = maleVoice;
                     pitch = 1.0;
-                } else if (femaleCandidate) {
-                    // Have female, want male
-                    selectedVoice = femaleCandidate;
-                    pitch = 0.75; // Deepen significantly
                 } else {
-                    // No explicit gender identified.
-                    // STRATEGY: Use the second available voice for male to create contrast with the default (usually female)
-                    if (enVoices.length > 1) {
-                         // Avoid using the same voice as the 'female' default if possible
-                         selectedVoice = enVoices[1];
-                    } else {
-                         selectedVoice = enVoices[0];
-                    }
-                    
-                    // Apply pitch shift to enforce manliness on a neutral voice
-                    pitch = 0.85; 
+                    // Fallback: Trên mobile thường chỉ có 1 giọng (thường là nữ)
+                    // Ta dùng giọng đó nhưng hạ thấp Pitch xuống để giả lập giọng nam
+                    selectedVoice = femaleVoice || enVoices[0];
+                    pitch = 0.6; // Pitch thấp (giọng trầm)
                 }
             } else { // female
-                if (femaleCandidate) {
-                    selectedVoice = femaleCandidate;
-                    pitch = 1.0;
-                } else if (maleCandidate) {
-                    // Have male, want female
-                    selectedVoice = maleCandidate;
-                    pitch = 1.45; // Raise significantly (male voices are deep)
+                if (femaleVoice) {
+                    selectedVoice = femaleVoice;
+                    pitch = 1.1; // Hơi cao một chút cho trong trẻo
                 } else {
-                    // No explicit gender identified.
-                    // STRATEGY: Use the first/default voice for female (standard assistants are usually female)
-                    selectedVoice = enVoices[0];
-                    
-                    // Apply slight lift to ensure femininity
-                    pitch = 1.1; 
+                    // Fallback: Dùng bất cứ giọng nào có được
+                    selectedVoice = maleVoice || enVoices[0];
+                    pitch = 1.2; // Pitch cao
                 }
             }
             
-            // Fallback safety
+            // An toàn
             if (!selectedVoice) selectedVoice = voices[0];
 
             return { voice: selectedVoice, pitch, rate };
@@ -1767,7 +1737,7 @@
         function speakSingleDialogueLine(text, gender) {
             window.speechSynthesis.cancel();
             
-            // Ensure voices are loaded
+            // Đảm bảo giọng đã load (đặc biệt trên Chrome Android)
             if (window.speechSynthesis.getVoices().length === 0) {
                  return; 
             }
@@ -1789,8 +1759,9 @@
 
             window.speechSynthesis.cancel();
             
+            // Retry nếu giọng chưa load kịp
             if (window.speechSynthesis.getVoices().length === 0) {
-                 setTimeout(speakDialogue, 100);
+                 setTimeout(speakDialogue, 200);
                  return;
             }
 
