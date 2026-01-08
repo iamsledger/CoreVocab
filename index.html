@@ -1503,6 +1503,7 @@
         function init() {
             renderUnitButtons();
             updateUI();
+            renderDialogue(); // Initial render
             
             document.querySelectorAll('.grade-btn').forEach(btn => {
                 btn.onclick = () => {
@@ -1513,6 +1514,13 @@
                     currentIndex = 0;
                     renderUnitButtons();
                     updateUI();
+                    
+                    // Always render dialogue to keep it synced
+                    renderDialogue();
+                    
+                    if (activeTab === 'practice') {
+                        switchPracticeMode('menu');
+                    }
                 }
             });
 
@@ -1557,7 +1565,11 @@
         function renderUnitButtons() {
             const container = document.getElementById('unit-selection');
             container.innerHTML = '';
-            const totalUnits = Object.keys(allVocabData[currentGrade]).length || 10;
+            
+            // Safety check in case grade doesn't exist
+            if (!allVocabData[currentGrade]) return;
+
+            const totalUnits = Object.keys(allVocabData[currentGrade]).length;
             const theme = gradeThemes[currentGrade] || gradeThemes["10"];
 
             for(let i=1; i<=totalUnits; i++) {
@@ -1573,7 +1585,7 @@
                     currentIndex = 0;
                     renderUnitButtons();
                     updateUI();
-                    if(activeTab === 'dialogue') renderDialogue();
+                    renderDialogue(); // Always render
                     if(activeTab === 'practice') switchPracticeMode('menu'); 
                 };
                 container.appendChild(btn);
@@ -1650,15 +1662,15 @@
         }
 
         function renderDialogue() {
-            const dialogue = allVocabData[currentGrade][currentUnit].dialogue || [];
+            const dialogueData = allVocabData[currentGrade] && allVocabData[currentGrade][currentUnit] ? allVocabData[currentGrade][currentUnit].dialogue : [];
             const container = document.getElementById('dialogue-content');
             
-            if (dialogue.length === 0) {
+            if (!dialogueData || dialogueData.length === 0) {
                 container.innerHTML = `<div class="p-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-300 text-gray-400 italic">Chưa có hội thoại cho bài này.</div>`;
                 return;
             }
 
-            container.innerHTML = dialogue.map(line => `
+            container.innerHTML = dialogueData.map(line => `
                 <div class="dialogue-bubble ${line.gender} transition hover:-translate-y-1">
                     <span class="font-black ${line.gender === 'female' ? 'text-pink-600' : 'text-blue-600'} uppercase text-xs block mb-1 flex items-center gap-1">
                         <i class="fas ${line.gender === 'female' ? 'fa-venus bg-pink-100 p-1 rounded-full' : 'fa-mars bg-blue-100 p-1 rounded-full'} text-xs w-5 h-5 flex items-center justify-center"></i> 
@@ -1678,47 +1690,94 @@
         }
 
         // --- IMPROVED VOICE LOGIC ---
-        function speakSingleDialogueLine(text, gender) {
-            window.speechSynthesis.cancel();
-            
-            let voices = window.speechSynthesis.getVoices();
-            if (voices.length === 0) return;
-
-            const msg = new SpeechSynthesisUtterance(text);
-            
-            // Logic chọn giọng giống hệt speakDialogue
-            const isMale = gender === 'male';
+        function getBestVoiceAndConfig(gender) {
+            const voices = window.speechSynthesis.getVoices();
             let enVoices = voices.filter(v => v.lang.includes('en'));
             if (enVoices.length === 0) enVoices = voices;
 
-            const maleKeywords = ["david", "daniel", "mark", "james", "male", "microsoft david"];
-            const femaleKeywords = ["zira", "samantha", "linda", "female", "google us english", "microsoft zira"];
+            const maleKeywords = ["male", "man", "boy", "david", "daniel", "mark", "james", "fred", "aaron", "gordon", "russell", "rishi", "arthur", "martin", "microsoft david", "microsoft mark", "microsoft richard"];
+            const femaleKeywords = ["female", "woman", "girl", "zira", "samantha", "linda", "catherine", "moira", "tessa", "alice", "susan", "helena", "google us english", "microsoft zira", "microsoft hazel", "microsoft heera"];
 
-            let selectedVoice = enVoices.find(v => {
-                const name = v.name.toLowerCase();
-                return isMale ? maleKeywords.some(k => name.includes(k)) : femaleKeywords.some(k => name.includes(k));
-            });
+            // Helper to check gender based on name
+            const checkGender = (name) => {
+                name = name.toLowerCase();
+                if (maleKeywords.some(k => name.includes(k)) && !femaleKeywords.some(k => name.includes(k) && !name.includes("google"))) return 'male';
+                if (femaleKeywords.some(k => name.includes(k)) && !maleKeywords.some(k => name.includes(k))) return 'female';
+                return 'neutral';
+            };
 
-            if (!selectedVoice) selectedVoice = enVoices[0];
+            // Identify best candidates explicitly
+            let maleCandidate = enVoices.find(v => checkGender(v.name) === 'male');
+            let femaleCandidate = enVoices.find(v => checkGender(v.name) === 'female');
 
-            let pitch = 1.0;
-            let rate = 0.95;
-            
-            if (selectedVoice) {
-                const voiceName = selectedVoice.name.toLowerCase();
-                const voiceIsLikelyFemale = femaleKeywords.some(k => voiceName.includes(k)) || voiceName.includes("google us english");
-                const voiceIsLikelyMale = maleKeywords.some(k => voiceName.includes(k));
-
-                if (isMale) {
-                    if (voiceIsLikelyFemale && !voiceIsLikelyMale) pitch = 0.8; 
-                } else {
-                    if (voiceIsLikelyMale && !voiceIsLikelyFemale) pitch = 1.2;
-                }
+            // Heuristics: Google US English is often female-sounding if not explicitly labeled
+            if (!femaleCandidate) {
+                femaleCandidate = enVoices.find(v => v.name.toLowerCase().includes("google us english"));
             }
 
-            msg.voice = selectedVoice;
-            msg.pitch = pitch;
-            msg.rate = rate;
+            let selectedVoice;
+            let pitch = 1.0;
+            let rate = 0.9;
+
+            if (gender === 'male') {
+                if (maleCandidate) {
+                    selectedVoice = maleCandidate;
+                    pitch = 1.0;
+                } else if (femaleCandidate) {
+                    // Have female, want male
+                    selectedVoice = femaleCandidate;
+                    pitch = 0.75; // Deepen significantly
+                } else {
+                    // No explicit gender identified.
+                    // STRATEGY: Use the second available voice for male to create contrast with the default (usually female)
+                    if (enVoices.length > 1) {
+                         // Avoid using the same voice as the 'female' default if possible
+                         selectedVoice = enVoices[1];
+                    } else {
+                         selectedVoice = enVoices[0];
+                    }
+                    
+                    // Apply pitch shift to enforce manliness on a neutral voice
+                    pitch = 0.85; 
+                }
+            } else { // female
+                if (femaleCandidate) {
+                    selectedVoice = femaleCandidate;
+                    pitch = 1.0;
+                } else if (maleCandidate) {
+                    // Have male, want female
+                    selectedVoice = maleCandidate;
+                    pitch = 1.45; // Raise significantly (male voices are deep)
+                } else {
+                    // No explicit gender identified.
+                    // STRATEGY: Use the first/default voice for female (standard assistants are usually female)
+                    selectedVoice = enVoices[0];
+                    
+                    // Apply slight lift to ensure femininity
+                    pitch = 1.1; 
+                }
+            }
+            
+            // Fallback safety
+            if (!selectedVoice) selectedVoice = voices[0];
+
+            return { voice: selectedVoice, pitch, rate };
+        }
+
+        function speakSingleDialogueLine(text, gender) {
+            window.speechSynthesis.cancel();
+            
+            // Ensure voices are loaded
+            if (window.speechSynthesis.getVoices().length === 0) {
+                 return; 
+            }
+
+            const msg = new SpeechSynthesisUtterance(text);
+            const config = getBestVoiceAndConfig(gender);
+
+            if (config.voice) msg.voice = config.voice;
+            msg.pitch = config.pitch;
+            msg.rate = config.rate;
             msg.lang = 'en-US';
 
             window.speechSynthesis.speak(msg);
@@ -1730,70 +1789,17 @@
 
             window.speechSynthesis.cancel();
             
-            // Ensure voices are available
-            let voices = window.speechSynthesis.getVoices();
-            if (voices.length === 0) {
-                 // Retry quickly if voices are not yet loaded
+            if (window.speechSynthesis.getVoices().length === 0) {
                  setTimeout(speakDialogue, 100);
                  return;
             }
-
-            // Helper to find best voice and pitch config
-            const getVoiceConfig = (gender) => {
-                const isMale = gender === 'male';
-                const lang = 'en-US';
-
-                // Filter for English voices first
-                let enVoices = voices.filter(v => v.lang.includes('en'));
-                if (enVoices.length === 0) enVoices = voices;
-
-                // Keywords to identify gender in voice names
-                const maleKeywords = ["david", "daniel", "mark", "james", "male", "microsoft david"];
-                const femaleKeywords = ["zira", "samantha", "linda", "female", "google us english", "microsoft zira"];
-
-                // Try to find a voice matching the gender keywords
-                let selectedVoice = enVoices.find(v => {
-                    const name = v.name.toLowerCase();
-                    return isMale ? maleKeywords.some(k => name.includes(k)) : femaleKeywords.some(k => name.includes(k));
-                });
-
-                // Fallback: if no specific gendered voice found, use the first available English voice
-                if (!selectedVoice) selectedVoice = enVoices[0];
-
-                // PITCH ADJUSTMENT STRATEGY
-                // If the voice found doesn't inherently match the requested gender (e.g. using a female voice for a male role),
-                // we artificially shift the pitch.
-                let pitch = 1.0;
-                let rate = 0.95; // Slightly slower for clarity
-                
-                if (selectedVoice) {
-                    const voiceName = selectedVoice.name.toLowerCase();
-                    // Check if the selected voice is widely known to be female/neutral (like Google US English)
-                    const voiceIsLikelyFemale = femaleKeywords.some(k => voiceName.includes(k)) || voiceName.includes("google us english");
-                    const voiceIsLikelyMale = maleKeywords.some(k => voiceName.includes(k));
-
-                    if (isMale) {
-                        // If we need male but have a likely female voice, lower the pitch
-                        if (voiceIsLikelyFemale && !voiceIsLikelyMale) {
-                            pitch = 0.8; 
-                        }
-                    } else {
-                        // If we need female but have a likely male voice, raise the pitch slightly
-                        if (voiceIsLikelyMale && !voiceIsLikelyFemale) {
-                            pitch = 1.2;
-                        }
-                    }
-                }
-
-                return { voice: selectedVoice, pitch, rate };
-            };
 
             let chainSpeech = (index) => {
                 if (index >= dialogue.length) return;
                 const line = dialogue[index];
                 
                 const msg = new SpeechSynthesisUtterance(line.text);
-                const config = getVoiceConfig(line.gender);
+                const config = getBestVoiceAndConfig(line.gender);
 
                 if (config.voice) msg.voice = config.voice;
                 msg.pitch = config.pitch;
