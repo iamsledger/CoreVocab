@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <link rel="icon" type="image/jpg" href="favicon.jpg">
-    <title>CoreVocab</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <title>CoreVocab Fixed V3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -39,10 +39,6 @@
             transform: translateY(-100%);
             opacity: 0;
             pointer-events: none;
-        }
-        .text-stroke {
-            -webkit-text-stroke: 2px #1e3a8a;
-            paint-order: stroke fill;
         }
 
         /* --- APP CONTAINER STYLES --- */
@@ -139,7 +135,7 @@
         .card-item.matched { border-color: #10b981 !important; background-color: #d1fae5 !important; color: #065f46; cursor: default; pointer-events: none; opacity: 0.8; box-shadow: none; transform: translateY(4px); }
         .card-item.incorrect-match { border-color: #ef4444 !important; background-color: #fee2e2 !important; animation: shake 0.4s; }
 
-        /* Snap Game */
+        /* Snap Game (Fixed Scramble) Styles */
         #gameContainer {
             position: relative; width: 100%; max-width: 400px; height: 320px;
             background-color: #f8fafc;
@@ -188,6 +184,9 @@
         @keyframes slideUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
         .floating-icon { animation: float 3s ease-in-out infinite; }
+        
+        .confetti { position: absolute; width: 10px; height: 10px; z-index: 50; }
+        .disabled-input { background-color: #f1f5f9 !important; border-color: #e2e8f0 !important; cursor: not-allowed; opacity: 0.7; }
     </style>
 </head>
 <body class="min-h-screen pb-10">
@@ -558,11 +557,20 @@
     <script>
         // --- STARTUP LOGIC ---
         function startApp() {
+            if(typeof allVocabData === 'undefined') {
+                alert("Đang tải dữ liệu, vui lòng đợi...");
+                return;
+            }
+
             const welcome = document.getElementById('welcome-screen');
             const app = document.getElementById('app-container');
             
             welcome.classList.add('welcome-hidden');
             app.classList.add('app-visible');
+            
+            if(document.getElementById('unit-selection').innerHTML === "") {
+                init();
+            }
         }
 
         function backToHome() {
@@ -573,7 +581,7 @@
             welcome.classList.remove('welcome-hidden');
         }
 
-        // --- VOCABULARY DATA (Rút gọn) ---
+        // --- VOCABULARY DATA (SAMPLE) ---
         const allVocabData = {
           "10": {
             "unit-1": {
@@ -1458,7 +1466,7 @@
             }
           }
         };
-        
+
         let currentGrade = "10";
         let currentUnit = "unit-1";
         let currentIndex = 0;
@@ -1474,16 +1482,18 @@
         let snapGameLoopId;
         let snapSpawnerId;
         let snapLetters = [];
+        let snapSpawnQueue = []; 
         let snapColWidth = 0;
         const SNAP_LETTER_SIZE = 48;
         const SNAP_COL_COUNT = 8;
         const SNAP_GRAVITY = 3;
-        const SNAP_SPAWN_DELAY = 1400;
+        const SNAP_SPAWN_DELAY = 800; // Faster spawn
         let maxQuestions = 10;
         let questionsPlayed = 0;
         let currentScore = 0;
         let currentWrong = 0;
         let currentGameMode = "";
+        let fbAnswered = false; // Flag for fillblank
 
         const gradeThemes = {
             "10": {
@@ -1503,7 +1513,7 @@
         function init() {
             renderUnitButtons();
             updateUI();
-            renderDialogue(); // Initial render
+            renderDialogue();
             
             document.querySelectorAll('.grade-btn').forEach(btn => {
                 btn.onclick = () => {
@@ -1514,13 +1524,8 @@
                     currentIndex = 0;
                     renderUnitButtons();
                     updateUI();
-                    
-                    // Always render dialogue to keep it synced
                     renderDialogue();
-                    
-                    if (activeTab === 'practice') {
-                        switchPracticeMode('menu');
-                    }
+                    if (activeTab === 'practice') { switchPracticeMode('menu'); }
                 }
             });
 
@@ -1565,27 +1570,21 @@
         function renderUnitButtons() {
             const container = document.getElementById('unit-selection');
             container.innerHTML = '';
-            
-            // Safety check in case grade doesn't exist
             if (!allVocabData[currentGrade]) return;
-
             const totalUnits = Object.keys(allVocabData[currentGrade]).length;
             const theme = gradeThemes[currentGrade] || gradeThemes["10"];
-
             for(let i=1; i<=totalUnits; i++) {
                 const btn = document.createElement('button');
                 const isActive = currentUnit === 'unit-'+i;
                 const activeClass = isActive ? theme.active : theme.base;
-
                 btn.className = `unit-button px-3 py-3 rounded-xl font-bold transition text-sm flex flex-col items-center justify-center border-2 ${activeClass}`;
                 btn.innerHTML = `<span class="text-xs opacity-70">UNIT</span><span class="text-lg">${i}</span>`;
-                
                 btn.onclick = () => {
                     currentUnit = 'unit-'+i;
                     currentIndex = 0;
                     renderUnitButtons();
                     updateUI();
-                    renderDialogue(); // Always render
+                    renderDialogue();
                     if(activeTab === 'practice') switchPracticeMode('menu'); 
                 };
                 container.appendChild(btn);
@@ -1598,43 +1597,20 @@
                 document.getElementById('vocab-list-container').innerHTML = "";
                 return;
             }
-
             const data = allVocabData[currentGrade][currentUnit];
             const words = data.words || [];
             if(words.length === 0) return;
-
             const item = words[currentIndex];
-            
             document.getElementById('display-title').innerHTML = `<span class="text-gray-400 text-lg font-medium block mb-1">UNIT ${currentUnit.split('-')[1]}</span>${data.title}`;
-            
-            // Cập nhật Flashcard
             document.getElementById('fc-word').textContent = item.word;
             document.getElementById('fc-ipa-front').textContent = item.ipa;
-            
             const posFront = document.getElementById('fc-pos-front');
-            if (item.pos) {
-                posFront.textContent = item.pos;
-                posFront.classList.remove('hidden');
-            } else {
-                posFront.classList.add('hidden');
-            }
-
+            if (item.pos) { posFront.textContent = item.pos; posFront.classList.remove('hidden'); } else { posFront.classList.add('hidden'); }
             document.getElementById('fc-def').textContent = item.def;
-            
             const exEn = document.getElementById('fc-example-en');
             const exVi = document.getElementById('fc-example-vi');
-            
-            if (item.example) {
-                exEn.textContent = `"${item.example}"`;
-                exVi.textContent = item.exampleVi ? item.exampleVi : "";
-            } else {
-                exEn.textContent = "(Chưa có ví dụ)";
-                exVi.textContent = "";
-            }
-
+            if (item.example) { exEn.textContent = `"${item.example}"`; exVi.textContent = item.exampleVi ? item.exampleVi : ""; } else { exEn.textContent = "(Chưa có ví dụ)"; exVi.textContent = ""; }
             document.getElementById('fc-counter').textContent = `${currentIndex + 1} / ${words.length}`;
-            
-            // Cập nhật Danh sách
             const listContainer = document.getElementById('vocab-list-container');
             listContainer.innerHTML = words.map((v, idx) => `
                 <div class="bg-white/80 backdrop-blur-sm p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition duration-300 group relative overflow-hidden">
@@ -1664,12 +1640,10 @@
         function renderDialogue() {
             const dialogueData = allVocabData[currentGrade] && allVocabData[currentGrade][currentUnit] ? allVocabData[currentGrade][currentUnit].dialogue : [];
             const container = document.getElementById('dialogue-content');
-            
             if (!dialogueData || dialogueData.length === 0) {
                 container.innerHTML = `<div class="p-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-300 text-gray-400 italic">Chưa có hội thoại cho bài này.</div>`;
                 return;
             }
-
             container.innerHTML = dialogueData.map(line => `
                 <div class="dialogue-bubble ${line.gender} transition hover:-translate-y-1">
                     <span class="font-black ${line.gender === 'female' ? 'text-pink-600' : 'text-blue-600'} uppercase text-xs block mb-1 flex items-center gap-1">
@@ -1689,100 +1663,76 @@
             `).join('');
         }
 
-        // --- IMPROVED VOICE LOGIC FOR MOBILE ---
-        function getBestVoiceAndConfig(gender) {
-            const voices = window.speechSynthesis.getVoices();
-            // Lọc các giọng tiếng Anh
-            let enVoices = voices.filter(v => v.lang.startsWith('en'));
-            
-            // Nếu không tìm thấy giọng tiếng Anh, dùng bất kỳ giọng nào
-            if (enVoices.length === 0) enVoices = voices;
-
-            // Cố gắng tìm giọng nam/nữ rõ ràng dựa trên tên
-            const maleVoice = enVoices.find(v => v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('david') || v.name.toLowerCase().includes('daniel'));
-            const femaleVoice = enVoices.find(v => v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('samantha') || v.name.toLowerCase().includes('google us'));
-
-            let selectedVoice = null;
-            let pitch = 1.0;
-            let rate = 0.9; // Tốc độ hơi chậm cho dễ nghe
-
-            if (gender === 'male') {
-                if (maleVoice) {
-                    // Nếu có giọng nam thực sự
-                    selectedVoice = maleVoice;
-                    pitch = 1.0;
-                } else {
-                    // Fallback: Trên mobile thường chỉ có 1 giọng (thường là nữ)
-                    // Ta dùng giọng đó nhưng hạ thấp Pitch xuống để giả lập giọng nam
-                    selectedVoice = femaleVoice || enVoices[0];
-                    pitch = 0.6; // Pitch thấp (giọng trầm)
-                }
-            } else { // female
-                if (femaleVoice) {
-                    selectedVoice = femaleVoice;
-                    pitch = 1.1; // Hơi cao một chút cho trong trẻo
-                } else {
-                    // Fallback: Dùng bất cứ giọng nào có được
-                    selectedVoice = maleVoice || enVoices[0];
-                    pitch = 1.2; // Pitch cao
-                }
-            }
-            
-            // An toàn
-            if (!selectedVoice) selectedVoice = voices[0];
-
-            return { voice: selectedVoice, pitch, rate };
-        }
-
         function speakSingleDialogueLine(text, gender) {
             window.speechSynthesis.cancel();
-            
-            // Đảm bảo giọng đã load (đặc biệt trên Chrome Android)
-            if (window.speechSynthesis.getVoices().length === 0) {
-                 return; 
-            }
-
+            let voices = window.speechSynthesis.getVoices();
+            if (voices.length === 0) return;
             const msg = new SpeechSynthesisUtterance(text);
-            const config = getBestVoiceAndConfig(gender);
-
-            if (config.voice) msg.voice = config.voice;
-            msg.pitch = config.pitch;
-            msg.rate = config.rate;
+            const isMale = gender === 'male';
+            let enVoices = voices.filter(v => v.lang.includes('en'));
+            if (enVoices.length === 0) enVoices = voices;
+            const maleKeywords = ["david", "daniel", "mark", "james", "male", "microsoft david"];
+            const femaleKeywords = ["zira", "samantha", "linda", "female", "google us english", "microsoft zira"];
+            let selectedVoice = enVoices.find(v => {
+                const name = v.name.toLowerCase();
+                return isMale ? maleKeywords.some(k => name.includes(k)) : femaleKeywords.some(k => name.includes(k));
+            });
+            if (!selectedVoice) selectedVoice = enVoices[0];
+            let pitch = 1.0;
+            let rate = 0.95;
+            if (selectedVoice) {
+                const voiceName = selectedVoice.name.toLowerCase();
+                const voiceIsLikelyFemale = femaleKeywords.some(k => voiceName.includes(k)) || voiceName.includes("google us english");
+                const voiceIsLikelyMale = maleKeywords.some(k => voiceName.includes(k));
+                if (isMale) { if (voiceIsLikelyFemale && !voiceIsLikelyMale) pitch = 0.8; } else { if (voiceIsLikelyMale && !voiceIsLikelyFemale) pitch = 1.2; }
+            }
+            msg.voice = selectedVoice;
+            msg.pitch = pitch;
+            msg.rate = rate;
             msg.lang = 'en-US';
-
             window.speechSynthesis.speak(msg);
         }
 
         function speakDialogue() {
             const dialogue = allVocabData[currentGrade][currentUnit].dialogue || [];
             if (dialogue.length === 0) return;
-
             window.speechSynthesis.cancel();
-            
-            // Retry nếu giọng chưa load kịp
-            if (window.speechSynthesis.getVoices().length === 0) {
-                 setTimeout(speakDialogue, 200);
-                 return;
-            }
-
+            let voices = window.speechSynthesis.getVoices();
+            if (voices.length === 0) { setTimeout(speakDialogue, 100); return; }
+            const getVoiceConfig = (gender) => {
+                const isMale = gender === 'male';
+                let enVoices = voices.filter(v => v.lang.includes('en'));
+                if (enVoices.length === 0) enVoices = voices;
+                const maleKeywords = ["david", "daniel", "mark", "james", "male", "microsoft david"];
+                const femaleKeywords = ["zira", "samantha", "linda", "female", "google us english", "microsoft zira"];
+                let selectedVoice = enVoices.find(v => {
+                    const name = v.name.toLowerCase();
+                    return isMale ? maleKeywords.some(k => name.includes(k)) : femaleKeywords.some(k => name.includes(k));
+                });
+                if (!selectedVoice) selectedVoice = enVoices[0];
+                let pitch = 1.0;
+                let rate = 0.95;
+                if (selectedVoice) {
+                    const voiceName = selectedVoice.name.toLowerCase();
+                    const voiceIsLikelyFemale = femaleKeywords.some(k => voiceName.includes(k)) || voiceName.includes("google us english");
+                    const voiceIsLikelyMale = maleKeywords.some(k => voiceName.includes(k));
+                    if (isMale) { if (voiceIsLikelyFemale && !voiceIsLikelyMale) { pitch = 0.8; } } else { if (voiceIsLikelyMale && !voiceIsLikelyFemale) { pitch = 1.2; } }
+                }
+                return { voice: selectedVoice, pitch, rate };
+            };
             let chainSpeech = (index) => {
                 if (index >= dialogue.length) return;
                 const line = dialogue[index];
-                
                 const msg = new SpeechSynthesisUtterance(line.text);
-                const config = getBestVoiceAndConfig(line.gender);
-
+                const config = getVoiceConfig(line.gender);
                 if (config.voice) msg.voice = config.voice;
                 msg.pitch = config.pitch;
                 msg.rate = config.rate;
                 msg.lang = 'en-US';
-
                 msg.onend = () => { setTimeout(() => chainSpeech(index + 1), 400); };
                 msg.onerror = (e) => { console.error("Speech error", e); chainSpeech(index + 1); };
-                
                 window.speechSynthesis.speak(msg);
             };
-
             chainSpeech(0);
         }
 
@@ -1826,17 +1776,332 @@
         function setupListening() { if (questionsPlayed >= maxQuestions) { showResults(); return; } updateScoreBoard(); const words = allVocabData[currentGrade][currentUnit].words; const correctItem = words[Math.floor(Math.random() * words.length)]; currentListeningWord = correctItem.word; const options = [correctItem.def]; while(options.length < 4) { const randomDef = words[Math.floor(Math.random() * words.length)].def; if(!options.includes(randomDef)) options.push(randomDef); } options.sort(() => Math.random() - 0.5); const container = document.getElementById('listening-options'); container.classList.remove('answered'); container.innerHTML = ''; options.forEach(opt => { const btn = document.createElement('div'); btn.className = 'quiz-option'; btn.textContent = opt; btn.onclick = () => { if(container.classList.contains('answered')) return; container.classList.add('answered'); if(opt === correctItem.def) { btn.classList.add('correct'); currentScore++; playCorrectSound(); } else { btn.classList.add('incorrect'); currentWrong++; playWrongSound(); Array.from(container.children).forEach(c => { if(c.textContent === correctItem.def) c.classList.add('correct'); }); } questionsPlayed++; updateScoreBoard(); setTimeout(() => setupListening(), 1500); }; container.appendChild(btn); }); setTimeout(() => speakText(currentListeningWord), 500); }
         function replayListening() { if(currentListeningWord) speakText(currentListeningWord); }
 
-        function setupFillBlank() { if (questionsPlayed >= maxQuestions) { showResults(); return; } updateScoreBoard(); const words = allVocabData[currentGrade][currentUnit].words; const item = words[Math.floor(Math.random() * words.length)]; currentFillBlankWord = item.word; document.getElementById('fb-def').textContent = item.def; document.getElementById('fb-input').value = ''; document.getElementById('fb-input').classList.remove('text-green-600', 'text-red-600', 'incorrect-match'); document.getElementById('fb-feedback').textContent = ''; document.getElementById('fb-hint').textContent = ''; document.getElementById('fb-next-btn').classList.add('hidden'); const exBox = document.getElementById('fb-context-box'); if (item.example && item.exampleVi) { const maskedExample = item.example.replace(new RegExp(item.word, "gi"), "_______"); document.getElementById('fb-example-en').innerHTML = maskedExample; document.getElementById('fb-example-vi').textContent = item.exampleVi; exBox.classList.remove('hidden'); } else { exBox.classList.add('hidden'); } document.getElementById('fb-input').focus(); }
-        function showHint() { if(currentFillBlankWord) { document.getElementById('fb-hint').textContent = `Gợi ý: Bắt đầu bằng chữ "${currentFillBlankWord.charAt(0)}" (${currentFillBlankWord.length} ký tự)`; } }
-        function checkFillBlank() { const input = document.getElementById('fb-input'); const feedback = document.getElementById('fb-feedback'); if (input.value.trim().toLowerCase() === currentFillBlankWord.toLowerCase()) { input.classList.add('text-green-600'); feedback.innerHTML = '<span class="text-green-600"><i class="fas fa-check-circle"></i> Chính xác!</span>'; playCorrectSound(); speakText(currentFillBlankWord); currentScore++; questionsPlayed++; updateScoreBoard(); document.getElementById('fb-next-btn').classList.remove('hidden'); } else { input.classList.add('text-red-600'); feedback.innerHTML = '<span class="text-red-500"><i class="fas fa-times-circle"></i> Sai rồi. Thử lại nhé!</span>'; input.classList.add('incorrect-match'); setTimeout(() => input.classList.remove('incorrect-match'), 500); playWrongSound(); if (!input.dataset.wrongCounted) { currentWrong++; input.dataset.wrongCounted = "true"; updateScoreBoard(); } } }
-        document.getElementById('fb-next-btn').onclick = () => { document.getElementById('fb-input').removeAttribute('data-wrong-counted'); setupFillBlank(); };
+        function setupFillBlank() { 
+            if (questionsPlayed >= maxQuestions) { showResults(); return; } 
+            updateScoreBoard();
+            
+            fbAnswered = false; // RESET STATE
+            
+            const words = allVocabData[currentGrade][currentUnit].words; 
+            const item = words[Math.floor(Math.random() * words.length)]; 
+            currentFillBlankWord = item.word; 
+            document.getElementById('fb-def').textContent = item.def; 
+            
+            const input = document.getElementById('fb-input');
+            input.value = ''; 
+            input.disabled = false; // ENABLE INPUT
+            input.classList.remove('text-green-600', 'text-red-600', 'incorrect-match', 'disabled-input'); 
+            input.removeAttribute('data-wrong-counted'); // Reset wrong count flag for new question
 
-        function setupScramble() { if (questionsPlayed >= maxQuestions) { showResults(); return; } updateScoreBoard(); snapLetters = []; clearInterval(snapSpawnerId); cancelAnimationFrame(snapGameLoopId); document.getElementById('gameContainer').innerHTML = ''; document.getElementById('dropZone').innerHTML = ''; document.getElementById('snap-feedback').textContent = ''; document.getElementById('snap-next-btn').classList.add('hidden'); const words = allVocabData[currentGrade][currentUnit].words; const item = words[Math.floor(Math.random() * words.length)]; currentScrambleWord = item.word.toUpperCase().replace(/\s+/g, ''); document.getElementById('snap-def').textContent = item.def; const container = document.getElementById('gameContainer'); snapColWidth = container.clientWidth / SNAP_COL_COUNT; for(let i=1; i<SNAP_COL_COUNT; i++) { let line = document.createElement('div'); line.className = 'grid-line'; line.style.left = (i * snapColWidth) + 'px'; container.appendChild(line); } const dropZone = document.getElementById('dropZone'); for(let char of currentScrambleWord) { let slot = document.createElement('div'); slot.className = 'slot cursor-pointer hover:bg-emerald-50'; slot.onclick = function() { if (this.classList.contains('filled')) { this.textContent = ''; this.classList.remove('filled'); playWrongSound(); } }; dropZone.appendChild(slot); } snap_gameLoop(); snapSpawnerId = setInterval(snap_spawnLetter, SNAP_SPAWN_DELAY); }
-        function shuffleSnapLetters() { snapLetters.forEach(obj => { if (!obj.isDragging && !obj.el.closest('.slot')) { const newCol = Math.floor(Math.random() * SNAP_COL_COUNT); obj.colIndex = newCol; obj.x = newCol * snapColWidth + (snapColWidth - SNAP_LETTER_SIZE) / 2; obj.y = -Math.random() * 200 - 50; obj.isFixed = false; } }); }
-        function snap_spawnLetter() { if(snapLetters.length > 25) return; const charSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"; const char = Math.random() > 0.4 ? currentScrambleWord[Math.floor(Math.random() * currentScrambleWord.length)] : charSet[Math.floor(Math.random() * charSet.length)]; const container = document.getElementById('gameContainer'); const el = document.createElement('div'); el.className = 'letter-box'; el.textContent = char; const colIndex = Math.floor(Math.random() * SNAP_COL_COUNT); const x = colIndex * snapColWidth + (snapColWidth - SNAP_LETTER_SIZE) / 2; const letterObj = { el: el, char: char, x: x, y: -50, colIndex: colIndex, isDragging: false, isFixed: false }; snap_setupPointerEvents(letterObj); container.appendChild(el); snapLetters.push(letterObj); }
-        function snap_setupPointerEvents(obj) { const el = obj.el; const container = document.getElementById('gameContainer'); const TOUCH_Y_OFFSET = 75; let startX = 0; let startY = 0; el.onpointerdown = function(e) { e.preventDefault(); el.setPointerCapture(e.pointerId); obj.isDragging = true; obj.isFixed = false; el.classList.add('dragging'); const rect = el.getBoundingClientRect(); obj.offsetX = e.clientX - rect.left; obj.offsetY = e.clientY - rect.top; startX = e.clientX; startY = e.clientY; }; el.onpointermove = function(e) { if (!obj.isDragging) return; e.preventDefault(); const dist = Math.hypot(e.clientX - startX, e.clientY - startY); if (dist < 10) return; const containerRect = container.getBoundingClientRect(); let newX = e.clientX - containerRect.left - obj.offsetX; let newY = e.clientY - containerRect.top - obj.offsetY - TOUCH_Y_OFFSET; obj.x = newX; obj.y = newY; el.style.left = obj.x + 'px'; el.style.top = obj.y + 'px'; el.style.visibility = 'hidden'; let checkX = e.clientX; let checkY = e.clientY - 40; let elemBelow = document.elementFromPoint(checkX, checkY); el.style.visibility = 'visible'; document.querySelectorAll('.slot.hovered').forEach(s => s.classList.remove('hovered')); if (elemBelow) { let slot = elemBelow.closest('.slot'); if (slot && !slot.classList.contains('filled')) { slot.classList.add('hovered'); } } }; el.onpointerup = function(e) { if (!obj.isDragging) return; obj.isDragging = false; el.classList.remove('dragging'); el.releasePointerCapture(e.pointerId); document.querySelectorAll('.slot.hovered').forEach(s => s.classList.remove('hovered')); const dist = Math.hypot(e.clientX - startX, e.clientY - startY); if (dist < 10) { const slots = document.querySelectorAll('.slot'); let targetSlot = null; for (let s of slots) { if (!s.classList.contains('filled')) { targetSlot = s; break; } } if (targetSlot) { targetSlot.textContent = obj.char; targetSlot.classList.add('filled'); gsap.fromTo(targetSlot, {scale: 0.8}, {scale: 1, duration: 0.4, ease: "elastic.out(1, 0.5)"}); playCorrectSound(); snap_removeLetter(obj); } else { playWrongSound(); } return; } el.style.visibility = 'hidden'; let checkX = e.clientX; let checkY = e.clientY - 40; let elemBelow = document.elementFromPoint(checkX, checkY); el.style.visibility = 'visible'; let dropped = false; if (elemBelow) { let slot = elemBelow.closest('.slot'); if (slot && !slot.classList.contains('filled')) { slot.textContent = obj.char; slot.classList.add('filled'); gsap.fromTo(slot, {scale: 0.8}, {scale: 1, duration: 0.4, ease: "elastic.out(1, 0.5)"}); playCorrectSound(); snap_removeLetter(obj); dropped = true; } } if (!dropped) { let centerX = obj.x + SNAP_LETTER_SIZE / 2; let bestCol = Math.floor(centerX / snapColWidth); if (bestCol < 0) bestCol = 0; if (bestCol >= SNAP_COL_COUNT) bestCol = SNAP_COL_COUNT - 1; obj.colIndex = bestCol; obj.x = bestCol * snapColWidth + (snapColWidth - SNAP_LETTER_SIZE) / 2; if (obj.y < -50) obj.y = -50; playWrongSound(); } }; }
-        function snap_removeLetter(obj) { obj.el.remove(); const idx = snapLetters.indexOf(obj); if (idx > -1) snapLetters.splice(idx, 1); }
-        function snap_gameLoop() { const container = document.getElementById('gameContainer'); if(!container) return; const floorY = container.clientHeight - SNAP_LETTER_SIZE; snapLetters.forEach(me => { if (me.isDragging) return; let targetY = floorY; for (let other of snapLetters) { if (me === other || other.isDragging) continue; if (Math.abs(me.x - other.x) < 10) { if (other.y > me.y) { let topOfOther = other.y - SNAP_LETTER_SIZE; if (topOfOther < targetY) targetY = topOfOther; } } } if (me.y < targetY) { me.y += SNAP_GRAVITY; if (me.y > targetY) me.y = targetY; me.isFixed = false; } else { me.y = targetY; me.isFixed = true; } me.el.style.left = me.x + 'px'; me.el.style.top = me.y + 'px'; }); snapGameLoopId = requestAnimationFrame(snap_gameLoop); }
+            document.getElementById('fb-feedback').textContent = ''; 
+            document.getElementById('fb-hint').textContent = ''; 
+            document.getElementById('fb-next-btn').classList.add('hidden'); 
+            
+            const exBox = document.getElementById('fb-context-box'); 
+            if (item.example && item.exampleVi) { 
+                const maskedExample = item.example.replace(new RegExp(item.word, "gi"), "_______"); 
+                document.getElementById('fb-example-en').innerHTML = maskedExample; 
+                document.getElementById('fb-example-vi').textContent = item.exampleVi; 
+                exBox.classList.remove('hidden'); 
+            } else { 
+                exBox.classList.add('hidden'); 
+            } 
+            input.focus(); 
+        }
+
+        function showHint() { if(currentFillBlankWord) { document.getElementById('fb-hint').textContent = `Gợi ý: Bắt đầu bằng chữ "${currentFillBlankWord.charAt(0)}" (${currentFillBlankWord.length} ký tự)`; } }
+        
+        function checkFillBlank() { 
+            if (fbAnswered) return; // Prevent multiple checks if already correct
+
+            const input = document.getElementById('fb-input'); 
+            const feedback = document.getElementById('fb-feedback'); 
+            
+            if (input.value.trim().toLowerCase() === currentFillBlankWord.toLowerCase()) { 
+                // CORRECT ANSWER
+                input.classList.add('text-green-600'); 
+                input.disabled = true; // Disable input
+                input.classList.add('disabled-input');
+                
+                feedback.innerHTML = '<span class="text-green-600"><i class="fas fa-check-circle"></i> Chính xác!</span>'; 
+                playCorrectSound(); 
+                speakText(currentFillBlankWord); 
+                currentScore++; 
+                questionsPlayed++; 
+                updateScoreBoard(); 
+                
+                document.getElementById('fb-next-btn').classList.remove('hidden'); 
+                fbAnswered = true; // Set flag
+            } else { 
+                // WRONG ANSWER
+                input.classList.add('text-red-600'); 
+                feedback.innerHTML = '<span class="text-red-500"><i class="fas fa-times-circle"></i> Sai rồi. Thử lại nhé!</span>'; 
+                input.classList.add('incorrect-match'); 
+                setTimeout(() => input.classList.remove('incorrect-match'), 500); 
+                playWrongSound(); 
+                
+                // Only count wrong ONCE per question
+                if (!input.dataset.wrongCounted) { 
+                    currentWrong++; 
+                    input.dataset.wrongCounted = "true"; 
+                    updateScoreBoard(); 
+                } 
+            } 
+        }
+        
+        document.getElementById('fb-next-btn').onclick = setupFillBlank;
+
+        // --- FIXED SCRAMBLE GAME LOGIC (QUEUE BASED + NOISE) ---
+        function setupScramble() {
+            if (questionsPlayed >= maxQuestions) { showResults(); return; }
+            updateScoreBoard();
+            
+            // Reset state
+            snapLetters = [];
+            snapSpawnQueue = []; // Clear queue
+            clearInterval(snapSpawnerId);
+            cancelAnimationFrame(snapGameLoopId);
+            
+            document.getElementById('gameContainer').innerHTML = '';
+            document.getElementById('dropZone').innerHTML = '';
+            document.getElementById('snap-feedback').textContent = '';
+            document.getElementById('snap-next-btn').classList.add('hidden');
+
+            const words = allVocabData[currentGrade][currentUnit].words;
+            const item = words[Math.floor(Math.random() * words.length)];
+            currentScrambleWord = item.word.toUpperCase().replace(/\s+/g, '');
+            document.getElementById('snap-def').textContent = item.def;
+
+            // QUEUE LOGIC:
+            let chars = currentScrambleWord.split('');
+            
+            // --- ADDING NOISE (10 Random Letters) ---
+            const noiseCount = 10;
+            const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            for(let k=0; k<noiseCount; k++) {
+                chars.push(alphabet[Math.floor(Math.random() * alphabet.length)]);
+            }
+            
+            // Shuffle
+            snapSpawnQueue = chars.sort(() => Math.random() - 0.5);
+
+            const container = document.getElementById('gameContainer');
+            snapColWidth = container.clientWidth / SNAP_COL_COUNT;
+            
+            // Draw grid lines
+            for(let i=1; i<SNAP_COL_COUNT; i++) { 
+                let line = document.createElement('div'); 
+                line.className = 'grid-line'; 
+                line.style.position = 'absolute';
+                line.style.top = '0';
+                line.style.bottom = '0';
+                line.style.width = '1px';
+                line.style.backgroundColor = 'rgba(203, 213, 225, 0.3)';
+                line.style.left = (i * snapColWidth) + 'px'; 
+                container.appendChild(line); 
+            }
+
+            // Create drop slots (Only for the correct word length)
+            const dropZone = document.getElementById('dropZone');
+            for(let char of currentScrambleWord) {
+                let slot = document.createElement('div');
+                slot.className = 'slot cursor-pointer hover:bg-emerald-50';
+                
+                // Add click handler to return letter to queue
+                slot.onclick = function() {
+                    if (this.classList.contains('filled')) {
+                        const charToRespawn = this.textContent;
+                        this.textContent = '';
+                        this.classList.remove('filled');
+                        playWrongSound(); // Feedback sound
+                        
+                        // Push back to queue and restart spawner
+                        snapSpawnQueue.push(charToRespawn);
+                        clearInterval(snapSpawnerId);
+                        snapSpawnerId = setInterval(snap_spawnLetter, SNAP_SPAWN_DELAY);
+                    }
+                };
+                dropZone.appendChild(slot);
+            }
+
+            snap_gameLoop();
+            snapSpawnerId = setInterval(snap_spawnLetter, SNAP_SPAWN_DELAY);
+            snap_spawnLetter(); // Spawn first letter immediately
+        }
+
+        // Keep this for compatibility if called elsewhere, but unused in queue logic
+        function shuffleSnapLetters() {
+            snapLetters.forEach(obj => {
+                if (!obj.isDragging && !obj.el.closest('.slot')) {
+                    const newCol = Math.floor(Math.random() * SNAP_COL_COUNT);
+                    obj.colIndex = newCol;
+                    obj.x = newCol * snapColWidth + (snapColWidth - SNAP_LETTER_SIZE) / 2;
+                    obj.y = -Math.random() * 200 - 50;
+                    obj.isFixed = false;
+                }
+            });
+        }
+
+        function snap_spawnLetter() {
+            if (snapSpawnQueue.length === 0) {
+                clearInterval(snapSpawnerId);
+                return;
+            }
+            const char = snapSpawnQueue.pop();
+            const container = document.getElementById('gameContainer');
+            const el = document.createElement('div');
+            el.className = 'letter-box';
+            el.textContent = char;
+            
+            const colIndex = Math.floor(Math.random() * SNAP_COL_COUNT);
+            const x = colIndex * snapColWidth + (snapColWidth - SNAP_LETTER_SIZE) / 2;
+            const letterObj = { el: el, char: char, x: x, y: -60, colIndex: colIndex, isDragging: false, isFixed: false };
+            
+            snap_setupPointerEvents(letterObj);
+            container.appendChild(el);
+            snapLetters.push(letterObj);
+        }
+
+        function snap_setupPointerEvents(obj) {
+            const el = obj.el;
+            const container = document.getElementById('gameContainer');
+            const TOUCH_Y_OFFSET = 75;
+            let startX = 0; let startY = 0;
+
+            el.onpointerdown = function(e) {
+                e.preventDefault();
+                el.setPointerCapture(e.pointerId);
+                obj.isDragging = true;
+                obj.isFixed = false;
+                el.classList.add('dragging');
+                const rect = el.getBoundingClientRect();
+                obj.offsetX = e.clientX - rect.left;
+                obj.offsetY = e.clientY - rect.top;
+                startX = e.clientX; startY = e.clientY;
+            };
+
+            el.onpointermove = function(e) {
+                if (!obj.isDragging) return;
+                e.preventDefault();
+                
+                const containerRect = container.getBoundingClientRect();
+                let newX = e.clientX - containerRect.left - obj.offsetX;
+                let newY = e.clientY - containerRect.top - obj.offsetY - TOUCH_Y_OFFSET;
+                
+                el.style.left = newX + 'px';
+                el.style.top = newY + 'px';
+                
+                el.style.visibility = 'hidden';
+                let checkX = e.clientX; let checkY = e.clientY - 40;
+                let elemBelow = document.elementFromPoint(checkX, checkY);
+                el.style.visibility = 'visible';
+                
+                document.querySelectorAll('.slot.hovered').forEach(s => s.classList.remove('hovered'));
+                if (elemBelow) {
+                    let slot = elemBelow.closest('.slot');
+                    if (slot && !slot.classList.contains('filled')) {
+                        slot.classList.add('hovered');
+                    }
+                }
+            };
+
+            el.onpointerup = function(e) {
+                if (!obj.isDragging) return;
+                obj.isDragging = false;
+                el.classList.remove('dragging');
+                el.releasePointerCapture(e.pointerId);
+                document.querySelectorAll('.slot.hovered').forEach(s => s.classList.remove('hovered'));
+
+                const dist = Math.hypot(e.clientX - startX, e.clientY - startY);
+                if (dist < 10) {
+                    const slots = document.querySelectorAll('.slot');
+                    let targetSlot = null;
+                    for (let s of slots) { if (!s.classList.contains('filled')) { targetSlot = s; break; } }
+                    if (targetSlot) {
+                        targetSlot.textContent = obj.char;
+                        targetSlot.classList.add('filled');
+                        gsap.fromTo(targetSlot, {scale: 0.8}, {scale: 1, duration: 0.4, ease: "elastic.out(1, 0.5)"});
+                        playCorrectSound();
+                        snap_removeLetter(obj);
+                    } else {
+                        playWrongSound();
+                    }
+                    return;
+                }
+
+                el.style.visibility = 'hidden';
+                let checkX = e.clientX; let checkY = e.clientY - 40;
+                let elemBelow = document.elementFromPoint(checkX, checkY);
+                el.style.visibility = 'visible';
+                
+                let dropped = false;
+                if (elemBelow) {
+                    let slot = elemBelow.closest('.slot');
+                    if (slot && !slot.classList.contains('filled')) {
+                        slot.textContent = obj.char;
+                        slot.classList.add('filled');
+                        gsap.fromTo(slot, {scale: 0.8}, {scale: 1, duration: 0.4, ease: "elastic.out(1, 0.5)"});
+                        playCorrectSound();
+                        snap_removeLetter(obj);
+                        dropped = true;
+                    }
+                }
+
+                if (!dropped) {
+                    const containerRect = container.getBoundingClientRect();
+                    obj.x = e.clientX - containerRect.left - obj.offsetX;
+                    obj.y = e.clientY - containerRect.top - obj.offsetY - TOUCH_Y_OFFSET;
+                    
+                    if (obj.x < 0) obj.x = 0;
+                    if (obj.x > container.clientWidth - SNAP_LETTER_SIZE) obj.x = container.clientWidth - SNAP_LETTER_SIZE;
+                    if (obj.y < 0) obj.y = 0;
+                    if (obj.y > container.clientHeight - SNAP_LETTER_SIZE) obj.y = container.clientHeight - SNAP_LETTER_SIZE;
+
+                    playWrongSound();
+                }
+            };
+        }
+
+        function snap_removeLetter(obj) {
+            obj.el.remove();
+            const idx = snapLetters.indexOf(obj);
+            if (idx > -1) snapLetters.splice(idx, 1);
+        }
+
+        function snap_gameLoop() {
+            const container = document.getElementById('gameContainer');
+            if(!container) return;
+            const floorY = container.clientHeight - SNAP_LETTER_SIZE;
+            
+            snapLetters.forEach(me => {
+                if (me.isDragging) return;
+                
+                let targetY = floorY;
+                for (let other of snapLetters) {
+                    if (me === other || other.isDragging) continue;
+                    if (Math.abs(me.x - other.x) < SNAP_LETTER_SIZE * 0.8) {
+                        if (other.y > me.y) {
+                            let topOfOther = other.y - SNAP_LETTER_SIZE - 2;
+                            if (topOfOther < targetY) targetY = topOfOther;
+                        }
+                    }
+                }
+
+                if (me.y < targetY) {
+                    me.y += SNAP_GRAVITY;
+                    if (me.y > targetY) me.y = targetY;
+                    me.isFixed = false;
+                } else {
+                    me.y = targetY;
+                    me.isFixed = true;
+                }
+                
+                me.el.style.left = me.x + 'px';
+                me.el.style.top = me.y + 'px';
+            });
+            snapGameLoopId = requestAnimationFrame(snap_gameLoop);
+        }
+
         function createConfetti() { const container = document.getElementById('scramble-area'); for(let i=0; i<50; i++) { const conf = document.createElement('div'); conf.className = 'confetti'; conf.style.backgroundColor = `hsl(${Math.random()*360}, 100%, 50%)`; conf.style.left = Math.random() * 100 + '%'; conf.style.top = '50%'; container.appendChild(conf); gsap.to(conf, { x: (Math.random() - 0.5) * 500, y: (Math.random() - 0.5) * 500, rotation: Math.random() * 720, scale: Math.random() * 2, duration: 1 + Math.random(), ease: "power2.out", onComplete: () => conf.remove() }); } }
         function checkSnapWin() { const slots = document.querySelectorAll('.slot'); let text = ""; let full = true; slots.forEach(s => { text += s.textContent; if(!s.textContent) full = false; }); const feedback = document.getElementById('snap-feedback'); if(!full) { feedback.innerHTML = '<span class="text-orange-500">Chưa điền đủ các ô!</span>'; return; } if(text === currentScrambleWord) { feedback.innerHTML = '<span class="text-green-600">CHÍNH XÁC! 🎉</span>'; currentScore++; playCorrectSound(); speakText(currentScrambleWord); document.getElementById('snap-next-btn').classList.remove('hidden'); createConfetti(); clearInterval(snapSpawnerId); cancelAnimationFrame(snapGameLoopId); } else { feedback.innerHTML = '<span class="text-red-500">Sai rồi. Thử lại nhé!</span>'; currentWrong++; playWrongSound(); slots.forEach(s => { s.textContent = ''; s.classList.remove('filled'); }); } questionsPlayed++; updateScoreBoard(); }
         document.getElementById('snap-next-btn').onclick = setupScramble;
